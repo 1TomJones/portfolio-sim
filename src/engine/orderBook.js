@@ -148,7 +148,7 @@ export class OrderBook {
     return true;
   }
 
-  _createManualOrder({ side, price, size, ownerId }) {
+  _createManualOrder({ side, price, size, ownerId, source }) {
     const { display, hidden, displayTarget } = this._splitIceberg(size);
     const order = {
       id: `o${this.nextOrderId++}`,
@@ -158,6 +158,7 @@ export class OrderBook {
       remaining: display,
       hiddenRemaining: hidden,
       displayTarget,
+      source,
       createdAt: Date.now(),
       nextRefreshAt: Date.now() + (this.config.refreshDelayMs ?? 0),
     };
@@ -169,7 +170,7 @@ export class OrderBook {
     return order;
   }
 
-  _addManualOrder({ side, price, size, ownerId }) {
+  _addManualOrder({ side, price, size, ownerId, source }) {
     const quantized = Math.max(this.config.minVolume, Math.round(size));
     if (quantized <= 0) return null;
     const bookSide = bookSideForOrder(side);
@@ -181,7 +182,7 @@ export class OrderBook {
     const acceptSize = Math.min(quantized, capacity);
     if (acceptSize <= this.config.minVolume * 0.02) return null;
 
-    const order = this._createManualOrder({ side, price: snapped, size: acceptSize, ownerId });
+    const order = this._createManualOrder({ side, price: snapped, size: acceptSize, ownerId, source });
     if (!this._enqueueOrder(level, order)) return null;
     this.sortLevels();
     return order;
@@ -264,7 +265,7 @@ export class OrderBook {
   }
 
   _executeAggressiveOrder(side, quantity, options = {}) {
-    const { limitPrice = null, ownerId = null, restOnNoLiquidity = true } = options;
+    const { limitPrice = null, ownerId = null, restOnNoLiquidity = true, takerSource = null } = options;
     const filledLots = [];
     const takeSide = passiveSide(side);
     let remaining = Math.max(0, quantity);
@@ -281,14 +282,28 @@ export class OrderBook {
     let totalNotional = 0;
     let queued = null;
 
+    const findEligibleLevel = () => {
+      if (takerSource !== "random") {
+        return takeSide === "ask" ? this.bestAsk() : this.bestBid();
+      }
+      const levels = takeSide === "ask" ? this.asks : this.bids;
+      for (const level of levels) {
+        if (this._totalVolume(level) <= 1e-8) continue;
+        const hasEligible = level.manualOrders.some((ord) => ord.remaining > 1e-8 && ord.source !== "mm");
+        if (hasEligible) return level;
+      }
+      return null;
+    };
+
     while (remaining > 1e-8) {
-      const level = takeSide === "ask" ? this.bestAsk() : this.bestBid();
+      const level = findEligibleLevel();
       if (!level) break;
       if (!limitCheck(level.price)) break;
 
       level.manualOrders.sort((a, b) => a.createdAt - b.createdAt);
       for (const order of [...level.manualOrders]) {
         if (remaining <= 1e-8) break;
+        if (takerSource === "random" && order.source === "mm") continue;
         const take = Math.min(remaining, order.remaining);
         if (take <= 0) continue;
         order.remaining -= take;
@@ -318,7 +333,7 @@ export class OrderBook {
 
     const executed = quantity - remaining;
     if (remaining > 1e-8 && restOnNoLiquidity) {
-      queued = this._enqueueMarketOrder(side, remaining, ownerId);
+      queued = this._enqueueMarketOrder(side, remaining, ownerId, takerSource);
       remaining = queued?.remaining ?? remaining;
     }
     if (executed <= 1e-8 && !queued) {
@@ -339,7 +354,7 @@ export class OrderBook {
     };
   }
 
-  _enqueueMarketOrder(side, size, ownerId) {
+  _enqueueMarketOrder(side, size, ownerId, source = null) {
     const quantized = Math.max(this.config.minVolume, Math.round(size));
     if (quantized <= 0) return null;
     const queued = {
@@ -347,6 +362,7 @@ export class OrderBook {
       ownerId,
       side,
       remaining: quantized,
+      source,
       createdAt: Date.now(),
     };
     this.marketQueue.push(queued);
@@ -361,6 +377,7 @@ export class OrderBook {
         ownerId: entry.ownerId,
         limitPrice: null,
         restOnNoLiquidity: false,
+        takerSource: entry.source ?? null,
       });
       if (result.filled <= 1e-8) break;
       entry.remaining = Math.max(0, result.remaining);
@@ -384,15 +401,16 @@ export class OrderBook {
   }
 
   executeMarketOrder(side, quantity, options = {}) {
-    const { ownerId = null, restOnNoLiquidity = true } = options;
+    const { ownerId = null, restOnNoLiquidity = true, takerSource = null } = options;
     return this._executeAggressiveOrder(side, quantity, {
       ownerId,
       restOnNoLiquidity,
       limitPrice: null,
+      takerSource,
     });
   }
 
-  placeLimitOrder({ side, price, size, ownerId }) {
+  placeLimitOrder({ side, price, size, ownerId, source }) {
     const snapped = snap(price, this.tickSize);
     const qty = Math.max(0, size);
     const now = Date.now();
@@ -404,12 +422,13 @@ export class OrderBook {
       limitPrice: snapped,
       ownerId,
       restOnNoLiquidity: false,
+      takerSource: source ?? null,
     });
     let resting = null;
     let remaining = cross.remaining;
 
     if (remaining > 1e-8) {
-      resting = this._addManualOrder({ side, price: snapped, size: remaining, ownerId });
+      resting = this._addManualOrder({ side, price: snapped, size: remaining, ownerId, source });
       remaining = 0;
     }
 

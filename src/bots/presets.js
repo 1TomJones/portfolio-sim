@@ -12,6 +12,21 @@ export const DEFAULT_BOT_CONFIG = [
     kRange: { min: 0, max: 4 },
     child: { size: 1 },
   },
+  {
+    id: "mm",
+    name: "Liquidity Ladder MM",
+    botType: "Liquidity-Ladder-MM",
+    enabled: true,
+    latencyMs: { mean: 300, jitter: 80 },
+    minDecisionMs: 200,
+    inventory: { maxAbs: Number.POSITIVE_INFINITY, target: 0 },
+    baseDistanceTicks: 10,
+    stepTicks: 2,
+    levels: 8,
+    sizes: [40, 30, 22, 16, 12, 9, 7, 5],
+    refreshMs: 1000,
+    refreshTicks: 2,
+  },
 ];
 
 export const DEFAULT_BOT_FIELD_DOCS = {

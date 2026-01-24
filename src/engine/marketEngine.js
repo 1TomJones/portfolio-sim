@@ -1172,13 +1172,14 @@ export class MarketEngine {
     }
   }
 
-  _executeLimitOrderForPlayer(player, side, price, qtyUnits) {
+  _executeLimitOrderForPlayer(player, side, price, qtyUnits, source = null) {
     const lotSize = this._lotSize();
     const outcome = this.orderBook.placeLimitOrder({
       side,
       price,
       size: qtyUnits * lotSize,
       ownerId: player.id,
+      source,
     });
 
     let executedUnits = 0;
@@ -1274,13 +1275,14 @@ export class MarketEngine {
     return executions;
   }
 
-  _enqueueMarketOrder(player, side, qty) {
+  _enqueueMarketOrder(player, side, qty, source = null) {
     if (!player || qty <= 0) return null;
     const entry = {
       id: `m${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       ownerId: player.id,
       side,
       remaining: qty,
+      source,
       createdAt: Date.now(),
     };
     if (side === "BUY") {
@@ -1316,7 +1318,7 @@ export class MarketEngine {
     return canceled;
   }
 
-  _executeMarketOrderAgainstBook(player, side, qty, { restOnNoLiquidity = true } = {}) {
+  _executeMarketOrderAgainstBook(player, side, qty, { restOnNoLiquidity = true, source = null } = {}) {
     if (!player || qty <= 0) return null;
     if (this._isLossLimitBreached(player)) return null;
     const capacity = this._capacityForSide(player, side);
@@ -1327,6 +1329,7 @@ export class MarketEngine {
     const result = this.orderBook.executeMarketOrder(side, totalLots, {
       ownerId: player.id,
       restOnNoLiquidity,
+      takerSource: source ?? null,
     });
     const hasQueued = Boolean(result.queued);
     if (result.filled <= 1e-8 && !hasQueued) return null;
@@ -1446,14 +1449,14 @@ export class MarketEngine {
       if (entry.remaining <= 1e-9) continue;
       const player = entry.ownerId ? this.players.get(entry.ownerId) : null;
       if (!player) continue;
-      this._executeMarketOrderAgainstBook(player, "BUY", entry.remaining);
+      this._executeMarketOrderAgainstBook(player, "BUY", entry.remaining, { source: entry.source ?? null });
     }
 
     for (const entry of pendingSells) {
       if (entry.remaining <= 1e-9) continue;
       const player = entry.ownerId ? this.players.get(entry.ownerId) : null;
       if (!player) continue;
-      this._executeMarketOrderAgainstBook(player, "SELL", entry.remaining);
+      this._executeMarketOrderAgainstBook(player, "SELL", entry.remaining, { source: entry.source ?? null });
     }
 
     this.pendingMarketOrders = this._createPendingMarketOrders();
@@ -1463,7 +1466,7 @@ export class MarketEngine {
     return this.executeMarketOrderForPlayer({ id, side, quantity });
   }
 
-  executeMarketOrderForPlayer({ id, side, quantity }) {
+  executeMarketOrderForPlayer({ id, side, quantity, source = null }) {
     const player = this.players.get(id);
     if (!player) return null;
     if (this._isLossLimitBreached(player)) {
@@ -1501,7 +1504,7 @@ export class MarketEngine {
       };
     }
 
-    this._enqueueMarketOrder(player, normalized, qty);
+    this._enqueueMarketOrder(player, normalized, qty, source ?? null);
     return {
       filled: 0,
       player,
@@ -1532,7 +1535,12 @@ export class MarketEngine {
     if (!normalized) return { ok: false, reason: "bad-side" };
 
     if (type === "market") {
-      const result = this.executeMarketOrderForPlayer({ id, side: normalized, quantity: order?.quantity });
+      const result = this.executeMarketOrderForPlayer({
+        id,
+        side: normalized,
+        quantity: order?.quantity,
+        source: order?.source ?? null,
+      });
       const filledUnits = Number(result?.filled ?? 0);
       return { ok: filledUnits > 1e-9 || Boolean(result?.queued), ...result, type };
     }
@@ -1665,7 +1673,13 @@ export class MarketEngine {
       });
 
       const prevExecuted = iceberg.executedQty ?? 0;
-      const placement = this._executeLimitOrderForPlayer(player, normalized, snappedPrice, iceberg.displayQty);
+      const placement = this._executeLimitOrderForPlayer(
+        player,
+        normalized,
+        snappedPrice,
+        iceberg.displayQty,
+        order?.source ?? null,
+      );
       if (placement.outcome?.fills?.length) {
         for (const fill of placement.outcome.fills) {
           const units = Number(fill.size || 0) / this._lotSize();
@@ -1718,6 +1732,7 @@ export class MarketEngine {
       normalized,
       snappedPrice,
       effectiveQty,
+      order?.source ?? null,
     );
 
     return {
