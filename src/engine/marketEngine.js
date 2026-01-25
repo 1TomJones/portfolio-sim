@@ -111,16 +111,34 @@ export class MarketEngine {
           : Number.isFinite(bestAsk)
             ? bestAsk
             : null;
-    const orders = Array.from(this.darkOrders.values())
-      .map((order) => ({
+    const orders = [];
+    const seen = new Set();
+    for (const order of this.darkOrders.values()) {
+      seen.add(order.id);
+      orders.push({
         id: order.id,
         side: order.side,
         price: order.price,
         remaining: order.remaining,
         ownerId: order.ownerId,
         createdAt: order.createdAt,
-      }))
-      .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+      });
+    }
+    for (const player of this.players.values()) {
+      for (const entry of player.darkOrders.values()) {
+        if (seen.has(entry.id)) continue;
+        seen.add(entry.id);
+        orders.push({
+          id: entry.id,
+          side: entry.side,
+          price: entry.price,
+          remaining: entry.remainingUnits ?? entry.remaining,
+          ownerId: player.id,
+          createdAt: entry.createdAt,
+        });
+      }
+    }
+    orders.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
     return {
       bids,
       asks,
