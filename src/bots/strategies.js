@@ -154,99 +154,58 @@ class SingleRandomBot extends StrategyBot {
 
     const tick = Number.isFinite(context.tickSize) ? context.tickSize : 0.25;
     const roundedLast = roundToTick(currentPrice, tick);
-    const rangeConfig = config.kRange ?? {};
-    const rangeMin = Array.isArray(rangeConfig)
-      ? rangeConfig[0]
-      : Number.isFinite(rangeConfig.min)
-      ? rangeConfig.min
-      : 0;
-    const rangeMax = Array.isArray(rangeConfig)
-      ? rangeConfig[1]
-      : Number.isFinite(rangeConfig.max)
-      ? rangeConfig.max
-      : 4;
-    const kMin = Math.max(0, Math.min(rangeMin ?? 0, rangeMax ?? 0));
-    const kMax = Math.max(0, Math.max(rangeMin ?? 0, rangeMax ?? 0));
-    const drawK = () => {
-      const span = Math.max(0, Math.floor(kMax) - Math.floor(kMin));
-      return Math.floor(kMin) + Math.floor(Math.random() * (span + 1));
-    };
-    const pickOffsetTicks = () => 1 + Math.floor(Math.random() * 3);
-    const improveAtBestProbability = 0.2;
+    const pickOffsetTicks = () => 1 + Math.floor(Math.random() * 4);
 
     const side = Math.random() < buyProbability ? "BUY" : "SELL";
     const isAggressive = Math.random() < aggressiveProbability;
     const quantity = this.sampleSize();
     let action = "limit";
     let price = null;
-    let k = null;
     let mode = isAggressive ? "aggressive" : "passive";
-    let orderType = "limit";
+    const offset = pickOffsetTicks();
 
     if (side === "BUY") {
-      const hasSellOrders = bookAsks.length > 0 || Number.isFinite(bestAsk);
+      const frontBuy = Number.isFinite(bestBid)
+        ? bestBid
+        : Number.isFinite(bookBids[0]?.price)
+        ? bookBids[0].price
+        : roundedLast;
       if (isAggressive) {
-        if (!hasSellOrders) {
-          if (Number.isFinite(bestBid) && Math.random() < improveAtBestProbability) {
-            price = roundToTick(bestBid, tick);
-          } else if (Number.isFinite(bestBid)) {
-            price = roundToTick(bestBid + tick, tick);
-          } else {
-            price = roundToTick(roundedLast - tick, tick);
-          }
-          action = "rebuild-book";
-        } else {
-          orderType = "market";
-          action = "market";
-          price = Number.isFinite(bestAsk) ? bestAsk : roundedLast;
-        }
+        price = roundToTick(frontBuy + offset * tick, tick);
+        action = "aggressive-limit";
       } else {
-        const offset = pickOffsetTicks();
-        price = roundToTick(roundedLast - offset * tick, tick);
+        price = roundToTick(frontBuy - offset * tick, tick);
+        action = "passive-limit";
       }
     } else {
-      const hasBuyOrders = bookBids.length > 0 || Number.isFinite(bestBid);
+      const frontSell = Number.isFinite(bestAsk)
+        ? bestAsk
+        : Number.isFinite(bookAsks[0]?.price)
+        ? bookAsks[0].price
+        : roundedLast;
       if (isAggressive) {
-        if (!hasBuyOrders) {
-          if (Number.isFinite(bestAsk) && Math.random() < improveAtBestProbability) {
-            price = roundToTick(bestAsk, tick);
-          } else if (Number.isFinite(bestAsk)) {
-            price = roundToTick(bestAsk - tick, tick);
-          } else {
-            price = roundToTick(roundedLast + tick, tick);
-          }
-          action = "rebuild-book";
-        } else {
-          orderType = "market";
-          action = "market";
-          price = Number.isFinite(bestBid) ? bestBid : roundedLast;
-        }
+        price = roundToTick(frontSell - offset * tick, tick);
+        action = "aggressive-limit";
       } else {
-        const offset = pickOffsetTicks();
-        price = roundToTick(roundedLast + offset * tick, tick);
+        price = roundToTick(frontSell + offset * tick, tick);
+        action = "passive-limit";
       }
     }
 
-    if (orderType !== "market" && !Number.isFinite(price)) {
+    if (!Number.isFinite(price)) {
       this.setRegime("awaiting-price");
       return { skipped: true, reason: "invalid-price" };
     }
 
-    if (orderType === "market") {
-      this.execute({ side, quantity, source: "random" });
-    } else {
-      this.submitOrder({ type: "limit", side, price, quantity, source: "random" });
-    }
+    this.submitOrder({ type: "limit", side, price, quantity, source: "random" });
     this.setRegime("single-random");
     return {
       regime: this.currentRegime,
       buyProbability,
       aggressiveProbability,
-      kRange: { min: kMin, max: kMax },
       side,
       mode,
       price,
-      k,
       action,
     };
   }

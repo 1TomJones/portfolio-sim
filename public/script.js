@@ -620,7 +620,46 @@ function renderDepthBook(book, { container, lastLevels, setLastLevels, isActive,
     container.style.setProperty('--book-pad-top', '12px');
     container.style.setProperty('--book-pad-bottom', '12px');
   }
-  if (!book || ((!Array.isArray(book.bids) || !book.bids.length) && (!Array.isArray(book.asks) || !book.asks.length))) {
+  const ownLevels = new Set((ownOrders || []).map((order) => `${order.side}:${formatPrice(order.price)}`));
+  const rawAsks = Array.isArray(book?.asks) ? book.asks.slice(0, MAX_BOOK_DEPTH) : [];
+  const rawBids = Array.isArray(book?.bids) ? book.bids.slice(0, MAX_BOOK_DEPTH) : [];
+  const asksByPrice = new Map();
+  const bidsByPrice = new Map();
+  rawAsks.forEach((level) => {
+    const price = snapPriceValue(level?.price);
+    if (!Number.isFinite(price)) return;
+    asksByPrice.set(price, { ...level, price });
+  });
+  rawBids.forEach((level) => {
+    const price = snapPriceValue(level?.price);
+    if (!Number.isFinite(price)) return;
+    bidsByPrice.set(price, { ...level, price });
+  });
+
+  const depthTicks = 50;
+  const tickSize = getTickSize();
+  const lastReference = Number.isFinite(book?.lastPrice)
+    ? book.lastPrice
+    : Number.isFinite(book?.midPrice)
+    ? book.midPrice
+    : null;
+  const fallbackBase = Number.isFinite(lastReference) ? snapPriceValue(lastReference) : null;
+  const bestBidPrice = Number.isFinite(book?.bestBid)
+    ? snapPriceValue(book.bestBid)
+    : Number.isFinite(rawBids[0]?.price)
+    ? snapPriceValue(rawBids[0].price)
+    : Number.isFinite(fallbackBase)
+    ? snapPriceValue(fallbackBase - tickSize)
+    : null;
+  const bestAskPrice = Number.isFinite(book?.bestAsk)
+    ? snapPriceValue(book.bestAsk)
+    : Number.isFinite(rawAsks[0]?.price)
+    ? snapPriceValue(rawAsks[0].price)
+    : Number.isFinite(fallbackBase)
+    ? snapPriceValue(fallbackBase + tickSize)
+    : null;
+
+  if (!Number.isFinite(bestBidPrice) && !Number.isFinite(bestAskPrice)) {
     container.innerHTML = `<div class="book-empty muted">${emptyMessage || 'No resting liquidity'}</div>`;
     setLastLevels?.(new Map());
     if (isActive && bookSpreadLbl) bookSpreadLbl.textContent = 'Spread: —';
@@ -632,9 +671,23 @@ function renderDepthBook(book, { container, lastLevels, setLastLevels, isActive,
     return;
   }
 
-  const ownLevels = new Set((ownOrders || []).map((order) => `${order.side}:${formatPrice(order.price)}`));
-  const asks = Array.isArray(book.asks) ? book.asks.slice(0, MAX_BOOK_DEPTH) : [];
-  const bids = Array.isArray(book.bids) ? book.bids.slice(0, MAX_BOOK_DEPTH) : [];
+  const asks = [];
+  const bids = [];
+  if (Number.isFinite(bestAskPrice)) {
+    for (let i = 0; i < depthTicks; i += 1) {
+      const price = snapPriceValue(bestAskPrice + i * tickSize);
+      const level = asksByPrice.get(price) ?? { price, size: 0, manual: 0 };
+      asks.push(level);
+    }
+  }
+  if (Number.isFinite(bestBidPrice)) {
+    for (let i = 0; i < depthTicks; i += 1) {
+      const price = snapPriceValue(bestBidPrice - i * tickSize);
+      const level = bidsByPrice.get(price) ?? { price, size: 0, manual: 0 };
+      bids.push(level);
+    }
+  }
+
   const volumes = [...asks, ...bids].map((lvl) => Math.max(0, Number(lvl?.size || 0)));
   const maxVol = Math.max(1, ...volumes);
   const prevLevels = lastLevels ?? new Map();
