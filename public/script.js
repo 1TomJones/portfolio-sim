@@ -81,6 +81,7 @@ let myPos = 0;
 let currentMode = 'news';
 let lastBookSnapshot = null;
 let lastDarkSnapshot = null;
+let lastDarkOrders = [];
 let lastOrdersSnapshot = null;
 let myOrders = [];
 let orderType = 'market';
@@ -582,6 +583,22 @@ function formatVolume(value){
   return num.toFixed(2);
 }
 
+function hashString(input){
+  const str = String(input ?? '');
+  let hash = 0;
+  for (let i = 0; i < str.length; i += 1) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function ownerColorFromId(ownerId){
+  if (!ownerId) return '#6da8ff';
+  const hue = hashString(ownerId) % 360;
+  return `hsl(${hue} 70% 65%)`;
+}
+
 function formatElapsed(ms){
   const totalSeconds = Math.max(0, Math.floor((ms || 0) / 1000));
   const minutes = Math.floor(totalSeconds / 60);
@@ -885,7 +902,9 @@ function renderDarkBook(book){
     if (active.dataset.darkTakeQty != null) return 'input[data-dark-take-qty]';
     return null;
   });
-  const orders = Array.isArray(book?.orders) ? book.orders : [];
+  const incomingOrders = Array.isArray(book?.orders) ? book.orders : null;
+  if (incomingOrders) lastDarkOrders = incomingOrders;
+  const orders = (incomingOrders ?? lastDarkOrders).filter((order) => Number(order?.remaining ?? 0) > 0);
   darkBookBody.innerHTML = '';
   if (!orders.length) {
     const empty = document.createElement('div');
@@ -900,8 +919,12 @@ function renderDarkBook(book){
     const sideLabel = order.side === 'BUY' ? 'Buy' : 'Sell';
     const sideClass = order.side === 'BUY' ? 'buy' : 'sell';
     const isOwn = order.ownerId && order.ownerId === myId;
+    const ownerName = order.ownerName || 'Player';
+    const ownerLabel = isOwn ? 'You' : ownerName;
+    const ownerColor = isOwn ? 'rgba(255,223,120,0.9)' : ownerColorFromId(order.ownerId);
     const priceLabel = Number.isFinite(order.price) ? formatPrice(order.price) : '—';
     const qtyLabel = formatVolume(order.remaining);
+    const ageLabel = order.createdAt ? formatElapsed(Date.now() - order.createdAt) : '—';
 
     const ticket = document.createElement('div');
     ticket.className = `dark-ticket ${sideClass}${isOwn ? ' own' : ''}`;
@@ -909,22 +932,29 @@ function renderDarkBook(book){
     ticket.dataset.side = order.side;
     ticket.dataset.price = order.price;
     ticket.dataset.remaining = order.remaining;
+    ticket.style.setProperty('--owner-color', ownerColor);
 
     const header = document.createElement('div');
     header.className = 'dark-ticket-header';
-    const side = document.createElement('span');
-    side.className = order.side === 'BUY' ? 'side-buy' : 'side-sell';
-    side.textContent = isOwn ? `Your ${sideLabel}` : sideLabel;
+    const heading = document.createElement('div');
+    heading.className = 'dark-ticket-heading';
+    const sideBadge = document.createElement('span');
+    sideBadge.className = `dark-side-badge ${sideClass}`;
+    sideBadge.textContent = sideLabel;
+    const owner = document.createElement('span');
+    owner.className = 'dark-ticket-owner';
+    owner.textContent = ownerLabel;
+    heading.append(sideBadge, owner);
     const price = document.createElement('span');
     price.textContent = `@ ${priceLabel}`;
-    header.append(side, price);
+    header.append(heading, price);
 
     const body = document.createElement('div');
     body.className = 'dark-ticket-body';
     const volume = document.createElement('span');
     volume.textContent = `Volume ${qtyLabel}`;
     const idLabel = document.createElement('span');
-    idLabel.textContent = `#${order.id}`;
+    idLabel.textContent = `#${order.id} · ${ageLabel}`;
     body.append(volume, idLabel);
 
     const actions = document.createElement('div');
@@ -1511,6 +1541,18 @@ function renderChat(){
   chatLog.scrollTop = chatLog.scrollHeight;
 }
 
+function renderChatTargets(){
+  if (!chatTargetList || !chatChannelSummary) return;
+  chatTargetList.innerHTML = '';
+  const allOption = document.createElement('button');
+  allOption.type = 'button';
+  allOption.className = 'chip-btn';
+  allOption.textContent = 'All';
+  allOption.dataset.channel = 'all';
+  chatTargetList.appendChild(allOption);
+  chatChannelSummary.textContent = 'All';
+}
+
 /* draw */
 /* socket events */
 socket.on('connect', ()=>{
@@ -1714,6 +1756,23 @@ socket.on('chatHistory', (history)=>{
 
 socket.on('chatMessage', (message)=>{
   addChatMessage(message);
+});
+
+socket.on('darkBook', (book)=>{
+  lastDarkSnapshot = book;
+  if (Array.isArray(book?.orders)) lastDarkOrders = book.orders;
+  renderDarkBook(book);
+});
+socket.on('darkOrders', (payload)=>{
+  const orders = Array.isArray(payload?.orders)
+    ? payload.orders
+    : Array.isArray(payload)
+      ? payload
+      : [];
+  lastDarkOrders = orders;
+  if (currentBookView === 'dark') {
+    renderDarkBook({ ...(lastDarkSnapshot ?? {}), orders });
+  }
 });
 
 /* form interactions */
@@ -1936,4 +1995,3 @@ setPauseBadge(false);
 if (lastNewsHeadline && newsText) lastNewsHeadline.textContent = newsText.textContent || 'Waiting for news…';
 setBookView('dom');
 setTimeout(showIntroModal, 300);
-socket.on('darkBook', (book)=>{ renderDarkBook(book); });

@@ -169,6 +169,7 @@ function broadcastDarkBook(levels = 18) {
   const bookView = engine.getDarkBookView(levels);
   if (bookView) {
     io.emit("darkBook", bookView);
+    io.emit("darkOrders", { orders: bookView.orders });
   }
 }
 
@@ -319,6 +320,7 @@ io.on("connection", (socket) => {
   socket.emit("priceMode", engine.priceMode);
   socket.emit("orderBook", engine.getOrderBookView(18));
   socket.emit("darkBook", engine.getDarkBookView(18));
+  socket.emit("darkOrders", engine.getDarkOrdersView());
   socket.emit("icebergBook", engine.getIcebergBookView(socket.id));
   socket.emit("chatHistory", chatHistory);
   socket.emit("botSummary", bots.getSummary());

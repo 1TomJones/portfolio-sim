@@ -94,6 +94,25 @@ export class MarketEngine {
     return this.orderBook.getBookLevels(levels);
   }
 
+  getDarkOrdersView() {
+    const orders = [];
+    for (const order of this.darkPool.orders.values()) {
+      if (Number(order.remaining ?? 0) <= 0) continue;
+      const owner = order.ownerId ? this.players.get(order.ownerId) : null;
+      orders.push({
+        id: order.id,
+        side: order.side,
+        price: order.price,
+        remaining: order.remaining,
+        ownerId: order.ownerId,
+        ownerName: owner?.name ?? null,
+        createdAt: order.createdAt,
+      });
+    }
+    orders.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+    return { orders };
+  }
+
   getDarkBookView(levels = 12) {
     const bids = this._darkLevelsToArray(this.darkPool.bySide.BUY, { descending: true, levels });
     const asks = this._darkLevelsToArray(this.darkPool.bySide.SELL, { descending: false, levels });
@@ -108,19 +127,7 @@ export class MarketEngine {
           : Number.isFinite(bestAsk)
             ? bestAsk
             : null;
-    const orders = [];
-    for (const order of this.darkPool.orders.values()) {
-      if (Number(order.remaining ?? 0) <= 0) continue;
-      orders.push({
-        id: order.id,
-        side: order.side,
-        price: order.price,
-        remaining: order.remaining,
-        ownerId: order.ownerId,
-        createdAt: order.createdAt,
-      });
-    }
-    orders.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+    const { orders } = this.getDarkOrdersView();
     return {
       bids,
       asks,
