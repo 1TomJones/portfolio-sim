@@ -7,9 +7,105 @@ function roundToTick(price, tick) {
   return Math.round(price / tick) * tick;
 }
 
+function smoothStep(value) {
+  const t = clamp(value, 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
+function interpolateCurve(x, x0, x1, y0, y1) {
+  if (!Number.isFinite(x) || !Number.isFinite(x0) || !Number.isFinite(x1) || x1 === x0) return y0;
+  const t = (x - x0) / (x1 - x0);
+  const eased = smoothStep(t);
+  return y0 + (y1 - y0) * eased;
+}
+
 class SingleRandomBot extends StrategyBot {
   constructor(opts) {
     super({ ...opts, type: "Single-Random" });
+    this.randomState = {
+      buyProbability: Number.isFinite(this.config?.buyProbability) ? this.config.buyProbability : 0.5,
+      sellProbability: Number.isFinite(this.config?.buyProbability) ? 1 - this.config.buyProbability : 0.5,
+      aggressiveProbability: Number.isFinite(this.config?.aggressiveProbability)
+        ? this.config.aggressiveProbability
+        : 0.8,
+      fairValueLink: this.config?.fairValueLink === true,
+      deviationPct: 0,
+      updatedAt: 0,
+    };
+    this.randomStateTick = 0;
+  }
+
+  tick(context) {
+    this.updateRandomState(context);
+    super.tick(context);
+  }
+
+  getTelemetry() {
+    return { ...super.getTelemetry(), randomState: this.randomState };
+  }
+
+  updateRandomState(context) {
+    this.randomStateTick += 1;
+    if (this.randomState?.updatedAt && this.randomStateTick % 4 !== 0) return;
+    const config = this.config ?? {};
+    const fairValueLink = config.fairValueLink === true;
+    const baseBuyProbability = Number.isFinite(config.buyProbability) ? config.buyProbability : 0.5;
+    const baseAggressiveProbability = Number.isFinite(config.aggressiveProbability)
+      ? config.aggressiveProbability
+      : 0.8;
+    let buyProbability = baseBuyProbability;
+    let aggressiveProbability = baseAggressiveProbability;
+    let deviationPct = 0;
+    if (fairValueLink) {
+      const price = Number.isFinite(context?.price)
+        ? context.price
+        : Number.isFinite(context?.snapshot?.price)
+        ? context.snapshot.price
+        : this.market?.currentPrice;
+      const fairValue = Number.isFinite(context?.fairValue)
+        ? context.fairValue
+        : Number.isFinite(context?.snapshot?.fairValue)
+        ? context.snapshot.fairValue
+        : this.market?.fairValue;
+      if (Number.isFinite(price) && Number.isFinite(fairValue) && Math.abs(fairValue) > 1e-9) {
+        deviationPct = (price - fairValue) / fairValue;
+        const absDeviation = Math.abs(deviationPct);
+        let aboveBuyProbability = 0.5;
+        if (absDeviation <= 0.05) {
+          aboveBuyProbability = 0.5;
+        } else if (absDeviation <= 0.1) {
+          aboveBuyProbability = interpolateCurve(absDeviation, 0.05, 0.1, 0.5, 0.45);
+        } else if (absDeviation <= 0.2) {
+          aboveBuyProbability = interpolateCurve(absDeviation, 0.1, 0.2, 0.45, 0.3);
+        } else if (absDeviation <= 0.25) {
+          aboveBuyProbability = interpolateCurve(absDeviation, 0.2, 0.25, 0.3, 0.1);
+        } else {
+          aboveBuyProbability = 0;
+        }
+        if (absDeviation > 0.25) {
+          buyProbability = deviationPct > 0 ? 0 : 1;
+        } else if (deviationPct > 0) {
+          buyProbability = aboveBuyProbability;
+        } else if (deviationPct < 0) {
+          buyProbability = 1 - aboveBuyProbability;
+        } else {
+          buyProbability = 0.5;
+        }
+        if (absDeviation >= 0.2) {
+          aggressiveProbability = 1;
+        }
+      }
+    }
+    buyProbability = clamp(buyProbability, 0, 1);
+    aggressiveProbability = clamp(aggressiveProbability, 0, 1);
+    this.randomState = {
+      buyProbability,
+      sellProbability: 1 - buyProbability,
+      aggressiveProbability,
+      fairValueLink,
+      deviationPct,
+      updatedAt: Date.now(),
+    };
   }
 
   decide(context) {
@@ -35,8 +131,15 @@ class SingleRandomBot extends StrategyBot {
       : null;
 
     const config = this.config ?? {};
-    let buyProbability = Number.isFinite(config.buyProbability) ? config.buyProbability : 0.5;
-    const aggressiveProbability = Number.isFinite(config.aggressiveProbability)
+    const activeState = this.randomState ?? {};
+    const buyProbability = Number.isFinite(activeState.buyProbability)
+      ? activeState.buyProbability
+      : Number.isFinite(config.buyProbability)
+      ? config.buyProbability
+      : 0.5;
+    const aggressiveProbability = Number.isFinite(activeState.aggressiveProbability)
+      ? activeState.aggressiveProbability
+      : Number.isFinite(config.aggressiveProbability)
       ? config.aggressiveProbability
       : 0.8;
     const currentPrice = Number.isFinite(context.price)
@@ -51,22 +154,6 @@ class SingleRandomBot extends StrategyBot {
 
     const tick = Number.isFinite(context.tickSize) ? context.tickSize : 0.25;
     const roundedLast = roundToTick(currentPrice, tick);
-    const fairValue = Number.isFinite(context.fairValue)
-      ? context.fairValue
-      : Number.isFinite(context.snapshot?.fairValue)
-      ? context.snapshot.fairValue
-      : null;
-    const midPrice = Number.isFinite(bestBid) && Number.isFinite(bestAsk)
-      ? (bestBid + bestAsk) / 2
-      : Number.isFinite(topOfBook?.midPrice)
-      ? topOfBook.midPrice
-      : roundedLast;
-    const fairValueLink = config.fairValueLink === true;
-    const alpha = Number.isFinite(config.meanReversionAlpha) ? config.meanReversionAlpha : 0.03;
-    if (fairValueLink && Number.isFinite(fairValue) && Number.isFinite(midPrice) && alpha > 0) {
-      const devTicks = (midPrice - fairValue) / tick;
-      buyProbability = clamp(0.5 - devTicks * alpha, 0.1, 0.9);
-    }
     const rangeConfig = config.kRange ?? {};
     const rangeMin = Array.isArray(rangeConfig)
       ? rangeConfig[0]

@@ -995,6 +995,18 @@
         bot.config?.aggressiveProbability,
         80,
       );
+      const activeBuyProbabilityPct = probabilityToPercent(
+        bot.randomState?.buyProbability,
+        buyProbabilityPct,
+      );
+      const activeSellProbabilityPct = probabilityToPercent(
+        bot.randomState?.sellProbability,
+        100 - buyProbabilityPct,
+      );
+      const activeAggressiveProbabilityPct = probabilityToPercent(
+        bot.randomState?.aggressiveProbability,
+        aggressiveProbabilityPct,
+      );
       const kRange = bot.config?.kRange || {};
       const kMin = Math.max(
         0,
@@ -1030,6 +1042,18 @@
         <h3>Single Random Bot Controls</h3>
         <div class="bot-detail-grid">
           <div>
+            <label class="label" for="randomActiveBuyProbability">Active buy probability (%)</label>
+            <input id="randomActiveBuyProbability" type="number" value="${activeBuyProbabilityPct}" readonly>
+          </div>
+          <div>
+            <label class="label" for="randomActiveSellProbability">Active sell probability (%)</label>
+            <input id="randomActiveSellProbability" type="number" value="${activeSellProbabilityPct}" readonly>
+          </div>
+          <div>
+            <label class="label" for="randomActiveAggressiveProbability">Active aggressiveness (%)</label>
+            <input id="randomActiveAggressiveProbability" type="number" value="${activeAggressiveProbabilityPct}" readonly>
+          </div>
+          <div>
             <label class="label" for="randomBuyProbability">Buy probability (%)</label>
             <input id="randomBuyProbability" type="number" min="0" max="100" step="1" value="${buyProbabilityPct}">
           </div>
@@ -1057,7 +1081,7 @@
             </button>
           </div>
         </div>
-        <p class="muted">Probabilities clamp to 0–100%. Reservation k values are integers in ticks.</p>
+        <p class="muted">Active values refresh every 4 ticks when fair value link is enabled. Probabilities clamp to 0–100%. Reservation k values are integers in ticks.</p>
         <div class="bot-detail-actions">
           <button id="applyRandomBotBtn" class="primary">Apply changes</button>
         </div>
