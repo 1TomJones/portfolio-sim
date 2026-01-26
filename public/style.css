@@ -118,6 +118,39 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .side-widget-body{display:flex;flex-direction:column;gap:12px;flex:1}
 .side-widget-item{display:flex;flex-direction:column;gap:4px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:8px 10px}
 .side-widget-value{font-size:0.9rem;font-weight:600}
+.tasks-card .panel-header{align-items:flex-start}
+.task-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.task-tabs .chip-btn{padding:4px 8px;font-size:0.7rem}
+.task-tabs .chip-btn.active{background:rgba(109,168,255,0.25);border-color:rgba(109,168,255,0.45)}
+.tasks-body{gap:10px;overflow:hidden}
+.tasks-view{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0}
+.task-role{display:flex;flex-direction:column;gap:4px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:8px 10px}
+.task-list{display:flex;flex-direction:column;gap:10px}
+.task-empty{padding:10px;border-radius:4px;border:1px dashed rgba(255,255,255,0.15);text-align:center}
+.task-card{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:6px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04)}
+.task-card.expired{border-color:rgba(255,186,90,0.5);box-shadow:0 0 0 1px rgba(255,186,90,0.25)}
+.task-card-header{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.task-card-title{display:flex;flex-direction:column;gap:4px;font-weight:600}
+.task-badge{font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;padding:3px 6px;border-radius:999px;border:1px solid rgba(255,255,255,0.2)}
+.task-badge.buy{background:rgba(46,204,113,0.2);color:#a6f4c5;border-color:rgba(46,204,113,0.4)}
+.task-badge.sell{background:rgba(255,92,92,0.2);color:#ffd2d2;border-color:rgba(255,92,92,0.45)}
+.task-message{font-size:0.82rem;color:var(--text);line-height:1.3}
+.task-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;font-size:0.75rem;color:var(--muted)}
+.task-detail-grid strong{color:var(--text)}
+.task-progress{position:relative;height:6px;border-radius:999px;background:rgba(255,255,255,0.08);overflow:hidden}
+.task-progress span{position:absolute;top:0;left:0;bottom:0;background:linear-gradient(90deg,rgba(109,168,255,0.75),rgba(94,231,255,0.8));width:0%}
+.task-rule{font-size:0.72rem;color:var(--muted)}
+.task-voice{font-size:0.72rem;color:var(--muted);font-style:italic}
+.task-actions{display:flex;gap:8px;align-items:center}
+.task-actions button{padding:6px 10px;font-size:0.75rem}
+.task-meta{display:flex;flex-direction:column;gap:6px}
+.task-meta-row{display:flex;justify-content:space-between;font-size:0.75rem}
+.scoreboard{display:flex;flex-direction:column;gap:8px}
+.scoreboard-table{width:100%;border-collapse:collapse;font-size:0.75rem}
+.scoreboard-table th,.scoreboard-table td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,0.08);text-align:left}
+.scoreboard-table th{color:var(--muted);font-weight:600}
+.scoreboard-table td:last-child{text-align:right}
+.scoreboard-empty{padding:10px;border-radius:4px;border:1px dashed rgba(255,255,255,0.15);text-align:center;color:var(--muted)}
 .dom-col{display:flex;flex-direction:column;min-width:320px;min-height:0;height:100%}
 .panel{display:flex;flex-direction:column;gap:8px}
 .panel-header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:0}

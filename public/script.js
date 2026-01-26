@@ -35,6 +35,15 @@ const introModal     = document.getElementById('introModal');
 const introOpenBtn   = document.getElementById('introOpenBtn');
 const introCloseBtn  = document.getElementById('introCloseBtn');
 const introDismissBtn= document.getElementById('introDismissBtn');
+const taskRoleName   = document.getElementById('taskRoleName');
+const taskRoleOrg    = document.getElementById('taskRoleOrg');
+const taskList       = document.getElementById('taskList');
+const taskEmpty      = document.getElementById('taskEmpty');
+const taskNextTimer  = document.getElementById('taskNextTimer');
+const taskLastResult = document.getElementById('taskLastResult');
+const taskTabs       = Array.from(document.querySelectorAll('[data-task-tab]'));
+const taskViews      = Array.from(document.querySelectorAll('[data-task-view]'));
+const scoreboardEl   = document.getElementById('scoreboard');
 
 const chartContainer = document.getElementById('chart');
 let chartApi = null;
@@ -99,12 +108,81 @@ let ticksPerCandle = Math.max(1, Math.round(CANDLE_DURATION_MS / Math.max(1, avg
 let lastPointTime = null;
 let bookTickSize = 0.25;
 let currentBookView = 'dom';
+let currentRole = null;
+let activeTask = null;
+let taskHistory = [];
+let taskIndex = 0;
+let taskClock = null;
+let nextTaskTimeout = null;
+let nextTaskAt = null;
+let rosterPlayers = [];
 
 /* ui helpers */
 function show(node){ if(node) node.classList.remove('hidden'); }
 function hide(node){ if(node) node.classList.add('hidden'); }
 function clamp(value, min, max){ return Math.max(min, Math.min(max, value)); }
 function lerp(start, end, t){ return start + (end - start) * t; }
+
+const ROLE_PRESETS = [
+  {
+    id: 'broker',
+    roleName: 'Broker trader',
+    flavor: 'Agency execution',
+    organization: 'Cantor Fitzgerald',
+    contacts: [
+      { name: 'Sophie Lang', title: 'Agency Head', org: 'Cantor Fitzgerald' },
+      { name: 'Marcus Hill', title: 'Execution Lead', org: 'Cantor Fitzgerald' },
+      { name: 'Priya Desai', title: 'Senior Broker', org: 'Cantor Fitzgerald' },
+    ],
+    messages: [
+      'Client needs a clean print with minimal footprint.',
+      'Work this order quietly and keep the spread tight.',
+      'Keep slippage controlled and report progress.',
+    ],
+  },
+  {
+    id: 'investment-bank',
+    roleName: 'Investment bank trader',
+    flavor: 'Client flow',
+    organization: 'Goldman Sachs',
+    contacts: [
+      { name: 'Evan Park', title: 'Flow Trader', org: 'Goldman Sachs' },
+      { name: 'Lena Ortiz', title: 'Block Desk', org: 'Goldman Sachs' },
+      { name: 'Chris Madsen', title: 'Client Exec', org: 'Goldman Sachs' },
+    ],
+    messages: [
+      'Client flow incoming — keep it efficient.',
+      'We need this executed with minimal drift.',
+      'Stay inside the spread and move fast.',
+    ],
+  },
+  {
+    id: 'hedge-fund',
+    roleName: 'Hedge fund trader',
+    flavor: 'PM-driven execution',
+    organization: 'Citadel',
+    contacts: [
+      { name: 'Ari Kaplan', title: 'Portfolio Manager', org: 'Citadel' },
+      { name: 'Noah Kim', title: 'PM Associate', org: 'Citadel' },
+      { name: 'Elena Ruiz', title: 'Execution Trader', org: 'Citadel' },
+    ],
+    messages: [
+      'PM wants this filled with discretion.',
+      'Stay tight on price and speed.',
+      'Hit the target without tipping the market.',
+    ],
+  },
+];
+
+const TASK_DIFFICULTIES = [
+  { key: 'Intro', qtyRange: [30, 80], timeLimitSec: 240, priceTicks: 0, requiresAvg: false },
+  { key: 'Easy', qtyRange: [80, 160], timeLimitSec: 210, priceTicks: 0, requiresAvg: false },
+  { key: 'Medium', qtyRange: [180, 320], timeLimitSec: 150, priceTicks: 1, requiresAvg: true },
+  { key: 'Hard', qtyRange: [320, 520], timeLimitSec: 95, priceTicks: 2, requiresAvg: true },
+  { key: 'Professional', qtyRange: [520, 900], timeLimitSec: 70, priceTicks: 3, requiresAvg: true },
+];
+
+const TASK_VOICE_PLACEHOLDER = 'Voice line placeholder — pending script.';
 
 function algoSettingsFromAggressiveness(qty, aggressiveness){
   const safeAgg = clamp(Number.isFinite(aggressiveness) ? aggressiveness : 50, 0, 100);
@@ -501,18 +579,21 @@ function goLobby(){
   setTradingEnabled(false);
   setPhaseBadge('lobby');
   setPauseBadge(false);
+  stopTaskFlow();
 }
 function goWaiting(){
   hide(joinView); show(waitView); hide(gameView);
   setTradingEnabled(false);
   setPhaseBadge('lobby');
   setPauseBadge(false);
+  stopTaskFlow();
 }
 function goGame(){
   hide(joinView); hide(waitView); show(gameView);
   setTradingEnabled(true);
   ensureChart();
   resizeChart();
+  startTaskFlow();
 }
 
 window.addEventListener('resize', () => {
@@ -615,6 +696,381 @@ function formatBookVolume(value){
   const rounded = Math.round(num);
   if (rounded === 0 && num > 0) return '1';
   return Math.max(0, rounded).toString();
+}
+
+function randomBetween(min, max) {
+  const low = Math.min(min, max);
+  const high = Math.max(min, max);
+  return Math.floor(low + Math.random() * (high - low + 1));
+}
+
+function pickRandom(list = []) {
+  if (!Array.isArray(list) || list.length === 0) return null;
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function formatTaskCountdown(msRemaining) {
+  if (!Number.isFinite(msRemaining)) return '—';
+  const totalSeconds = Math.max(0, Math.floor(msRemaining / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function assignRoleIfNeeded() {
+  if (currentRole) return;
+  const role = pickRandom(ROLE_PRESETS) ?? ROLE_PRESETS[0];
+  currentRole = role;
+  if (taskRoleName) taskRoleName.textContent = `${role.roleName} (${role.flavor})`;
+  if (taskRoleOrg) taskRoleOrg.textContent = role.organization;
+}
+
+function resetTaskState() {
+  activeTask = null;
+  taskHistory = [];
+  taskIndex = 0;
+  nextTaskAt = null;
+  if (nextTaskTimeout) {
+    clearTimeout(nextTaskTimeout);
+    nextTaskTimeout = null;
+  }
+  if (taskClock) {
+    clearInterval(taskClock);
+    taskClock = null;
+  }
+  if (taskLastResult) taskLastResult.textContent = '—';
+  if (taskNextTimer) taskNextTimer.textContent = '—';
+  renderTaskPanel();
+  renderScoreboard();
+}
+
+function startTaskFlow() {
+  assignRoleIfNeeded();
+  if (!taskClock) {
+    taskClock = setInterval(updateTaskTimers, 1000);
+  }
+  if (!activeTask && !nextTaskAt && myJoined && lastPhase === 'running') {
+    scheduleNextTask({ delaySec: randomBetween(5, 12) });
+  }
+  renderTaskPanel();
+}
+
+function stopTaskFlow() {
+  if (nextTaskTimeout) {
+    clearTimeout(nextTaskTimeout);
+    nextTaskTimeout = null;
+  }
+  if (taskClock) {
+    clearInterval(taskClock);
+    taskClock = null;
+  }
+  nextTaskAt = null;
+  renderTaskPanel();
+}
+
+function setTaskTab(tab) {
+  taskTabs.forEach((btn) => {
+    const active = btn.dataset.taskTab === tab;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  taskViews.forEach((view) => {
+    view.classList.toggle('hidden', view.dataset.taskView !== tab);
+  });
+}
+
+function scheduleNextTask({ delaySec } = {}) {
+  if (nextTaskTimeout) clearTimeout(nextTaskTimeout);
+  const delay = Number.isFinite(delaySec) ? delaySec : randomBetween(10, 30);
+  nextTaskAt = Date.now() + delay * 1000;
+  if (taskNextTimer) taskNextTimer.textContent = formatTaskCountdown(delay * 1000);
+  nextTaskTimeout = setTimeout(() => {
+    nextTaskTimeout = null;
+    nextTaskAt = null;
+    allocateTask();
+  }, delay * 1000);
+}
+
+function pickDifficulty() {
+  const index = Math.min(taskIndex, TASK_DIFFICULTIES.length - 1);
+  return TASK_DIFFICULTIES[index];
+}
+
+function getArrivalPrice() {
+  if (Number.isFinite(lastTradedPrice)) return lastTradedPrice;
+  const labelPrice = Number(priceLbl?.textContent);
+  if (Number.isFinite(labelPrice)) return labelPrice;
+  return 100;
+}
+
+function buildTask() {
+  const role = currentRole ?? ROLE_PRESETS[0];
+  const difficulty = pickDifficulty();
+  const side = Math.random() > 0.5 ? 'BUY' : 'SELL';
+  const qty = randomBetween(difficulty.qtyRange[0], difficulty.qtyRange[1]);
+  const arrivalPrice = getArrivalPrice();
+  const tickSize = getTickSize();
+  const offset = (difficulty.priceTicks || 0) * tickSize;
+  const requiredAvgPrice = difficulty.requiresAvg
+    ? side === 'BUY'
+      ? arrivalPrice - offset
+      : arrivalPrice + offset
+    : null;
+  const contact = pickRandom(role.contacts) ?? role.contacts[0];
+  const message = pickRandom(role.messages) ?? 'Stay tight on execution.';
+  const createdAt = Date.now();
+  return {
+    id: `task-${createdAt}-${Math.random().toString(16).slice(2, 6)}`,
+    difficulty: difficulty.key,
+    sender: contact,
+    message,
+    side,
+    targetQty: qty,
+    filledQty: 0,
+    avgFillPrice: null,
+    arrivalPrice,
+    requiredAvgPrice,
+    createdAt,
+    expiresAt: createdAt + difficulty.timeLimitSec * 1000,
+    timeLimitSec: difficulty.timeLimitSec,
+    status: 'active',
+    voiceLine: TASK_VOICE_PLACEHOLDER,
+  };
+}
+
+function allocateTask() {
+  if (!myJoined || lastPhase !== 'running') return;
+  activeTask = buildTask();
+  taskIndex += 1;
+  renderTaskPanel();
+}
+
+function updateTaskTimers() {
+  if (activeTask && activeTask.status !== 'completed') {
+    const remaining = activeTask.expiresAt - Date.now();
+    if (remaining <= 0 && activeTask.status === 'active') {
+      activeTask.status = 'expired';
+    }
+  }
+  if (taskNextTimer) {
+    if (nextTaskAt) {
+      taskNextTimer.textContent = formatTaskCountdown(nextTaskAt - Date.now());
+    } else {
+      taskNextTimer.textContent = activeTask ? 'On completion' : '—';
+    }
+  }
+  renderTaskPanel();
+}
+
+function applyTaskFill({ qty, price }) {
+  if (!activeTask || activeTask.status === 'completed') return;
+  const side = qty > 0 ? 'BUY' : 'SELL';
+  if (side !== activeTask.side) return;
+  const fillQty = Math.abs(qty);
+  const prevQty = activeTask.filledQty;
+  const nextQty = prevQty + fillQty;
+  const prevAvg = activeTask.avgFillPrice ?? price;
+  const nextAvg = ((prevAvg * prevQty) + price * fillQty) / Math.max(1, nextQty);
+  activeTask.filledQty = nextQty;
+  activeTask.avgFillPrice = nextAvg;
+  renderTaskPanel();
+}
+
+function calculateMarketEfficiency(task) {
+  if (!task) return 0;
+  if (!task.requiredAvgPrice) return 100;
+  if (!Number.isFinite(task.avgFillPrice)) return 0;
+  if (task.side === 'BUY') {
+    if (task.avgFillPrice <= task.requiredAvgPrice) return 100;
+    return clamp((task.requiredAvgPrice / task.avgFillPrice) * 100, 0, 100);
+  }
+  if (task.avgFillPrice >= task.requiredAvgPrice) return 100;
+  return clamp((task.avgFillPrice / task.requiredAvgPrice) * 100, 0, 100);
+}
+
+function calculatePerformancePnl(task) {
+  if (!task?.requiredAvgPrice || !Number.isFinite(task.avgFillPrice)) return 0;
+  const qty = task.filledQty;
+  if (task.side === 'BUY') {
+    return (task.requiredAvgPrice - task.avgFillPrice) * qty;
+  }
+  return (task.avgFillPrice - task.requiredAvgPrice) * qty;
+}
+
+function completeTask() {
+  if (!activeTask || activeTask.status === 'completed') return;
+  const now = Date.now();
+  const remaining = activeTask.expiresAt - now;
+  const timeLimitSec = activeTask.timeLimitSec;
+  const completionScore = clamp((activeTask.filledQty / activeTask.targetQty) * 100, 0, 100);
+  const speedScore = remaining > 0 ? 100 : 0;
+  const marketEfficiencyScore = calculateMarketEfficiency(activeTask);
+  const performancePnl = calculatePerformancePnl(activeTask);
+  const commission = 0;
+  const totalPnl = performancePnl + commission;
+  const result = {
+    id: activeTask.id,
+    difficulty: activeTask.difficulty,
+    completionScore,
+    speedScore,
+    marketEfficiencyScore,
+    commission,
+    pnl: totalPnl,
+    filledQty: activeTask.filledQty,
+    targetQty: activeTask.targetQty,
+    completedAt: now,
+  };
+  taskHistory.push(result);
+  activeTask.status = 'completed';
+  activeTask = null;
+  if (taskLastResult) {
+    taskLastResult.textContent = `${result.difficulty} · ${completionScore.toFixed(0)}% complete · ${totalPnl.toFixed(2)} PnL`;
+  }
+  renderTaskPanel();
+  renderScoreboard();
+  const baseDelay = randomBetween(10, 30);
+  const bonus = Math.round(clamp((remaining / (timeLimitSec * 1000)) * 10, 0, 10));
+  const delay = clamp(baseDelay - bonus, 5, 30);
+  scheduleNextTask({ delaySec: delay });
+}
+
+function renderTaskPanel() {
+  if (!taskList) return;
+  taskList.innerHTML = '';
+  if (!activeTask) {
+    if (taskEmpty) taskEmpty.classList.remove('hidden');
+    return;
+  }
+  if (taskEmpty) taskEmpty.classList.add('hidden');
+  const task = activeTask;
+  const remainingMs = task.expiresAt - Date.now();
+  const progressPct = clamp((task.filledQty / task.targetQty) * 100, 0, 100);
+  const requiredAvgLabel = task.requiredAvgPrice ? formatPrice(task.requiredAvgPrice) : 'Not required';
+  const avgFillLabel = Number.isFinite(task.avgFillPrice) ? formatPrice(task.avgFillPrice) : '—';
+  const statusLabel = task.status === 'expired' ? 'Expired' : 'Active';
+  const badgeClass = task.side === 'BUY' ? 'buy' : 'sell';
+  const card = document.createElement('div');
+  card.className = `task-card ${task.status === 'expired' ? 'expired' : ''}`;
+  card.innerHTML = `
+    <div class="task-card-header">
+      <div class="task-card-title">
+        <span>${task.sender.name} · ${task.sender.title}</span>
+        <span class="muted">${task.sender.org}</span>
+      </div>
+      <span class="task-badge ${badgeClass}">${task.side}</span>
+    </div>
+    <div class="task-message">${task.message}</div>
+    <div class="task-detail-grid">
+      <div><span class="label">Difficulty</span><br /><strong>${task.difficulty}</strong></div>
+      <div><span class="label">Status</span><br /><strong>${statusLabel}</strong></div>
+      <div><span class="label">Target</span><br /><strong>${formatVolume(task.targetQty)}</strong></div>
+      <div><span class="label">Filled</span><br /><strong>${formatVolume(task.filledQty)}</strong></div>
+      <div><span class="label">Time left</span><br /><strong>${formatTaskCountdown(remainingMs)}</strong></div>
+      <div><span class="label">Arrival</span><br /><strong>${formatPrice(task.arrivalPrice)}</strong></div>
+      <div><span class="label">Required avg</span><br /><strong>${requiredAvgLabel}</strong></div>
+      <div><span class="label">Avg fill</span><br /><strong>${avgFillLabel}</strong></div>
+    </div>
+    <div class="task-rule">Rule: ${task.side === 'BUY' ? 'Avg fill must be below required price.' : 'Avg fill must be above required price.'}</div>
+    <div class="task-progress"><span style="width:${progressPct.toFixed(1)}%"></span></div>
+    <div class="task-voice">${task.voiceLine}</div>
+    <div class="task-actions">
+      <button type="button" class="ticket-btn" data-task-complete>Complete</button>
+    </div>
+  `;
+  taskList.appendChild(card);
+}
+
+function getScoreAverages() {
+  if (!taskHistory.length) return null;
+  const totals = taskHistory.reduce(
+    (acc, entry) => {
+      acc.completion += entry.completionScore;
+      acc.speed += entry.speedScore;
+      acc.efficiency += entry.marketEfficiencyScore;
+      acc.commission += entry.commission;
+      acc.pnl += entry.pnl;
+      return acc;
+    },
+    { completion: 0, speed: 0, efficiency: 0, commission: 0, pnl: 0 },
+  );
+  const count = taskHistory.length;
+  const avgCompletion = totals.completion / count;
+  const avgSpeed = totals.speed / count;
+  const avgEfficiency = totals.efficiency / count;
+  const avgCommission = totals.commission / count;
+  const finalPct = (avgCompletion + avgSpeed + avgEfficiency) / 3;
+  return {
+    completion: avgCompletion,
+    speed: avgSpeed,
+    efficiency: avgEfficiency,
+    commission: avgCommission,
+    finalPct,
+    pnl: totals.pnl,
+  };
+}
+
+function renderScoreboard() {
+  if (!scoreboardEl) return;
+  const humans = rosterPlayers.filter((entry) => !entry.isBot);
+  if (!humans.length && !myName) {
+    scoreboardEl.innerHTML = '<div class="scoreboard-empty">No human players yet.</div>';
+    return;
+  }
+  const averages = getScoreAverages();
+  const rows = (humans.length ? humans : [{ name: myName || 'You', isBot: false }]).map((player) => {
+    const isMe = player.name === myName;
+    if (!isMe || !averages) {
+      return {
+        name: player.name,
+        speed: '—',
+        completion: '—',
+        efficiency: '—',
+        commission: '—',
+        finalPct: '—',
+        pnl: '—',
+      };
+    }
+    return {
+      name: player.name,
+      speed: `${averages.speed.toFixed(0)}%`,
+      completion: `${averages.completion.toFixed(0)}%`,
+      efficiency: `${averages.efficiency.toFixed(0)}%`,
+      commission: `${averages.commission.toFixed(2)}`,
+      finalPct: `${averages.finalPct.toFixed(0)}%`,
+      pnl: `${averages.pnl.toFixed(2)}`,
+    };
+  });
+  const header = `
+    <table class="scoreboard-table">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th>Speed</th>
+          <th>Completion</th>
+          <th>Market efficiency</th>
+          <th>Commission</th>
+          <th>Final %</th>
+          <th>PnL</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows
+          .map(
+            (row) => `
+          <tr>
+            <td>${row.name}</td>
+            <td>${row.speed}</td>
+            <td>${row.completion}</td>
+            <td>${row.efficiency}</td>
+            <td>${row.commission}</td>
+            <td>${row.finalPct}</td>
+            <td>${row.pnl}</td>
+          </tr>`,
+          )
+          .join('')}
+      </tbody>
+    </table>`;
+  scoreboardEl.innerHTML = header;
 }
 
 function syncBookScrollToggle(){
@@ -1582,6 +2038,7 @@ function handleJoinAck(ack, { resetButton = true } = {}){
   if (ack && ack.ok) {
     myJoined = true;
     if (ack.orders) renderOrders(ack.orders);
+    renderScoreboard();
     if (ack.phase === 'lobby') {
       joinMsg.textContent='Joined — waiting for host…';
       goWaiting();
@@ -1624,6 +2081,8 @@ socket.on('playerList', (rows = [])=>{
         isBot: Boolean(entry?.isBot),
       }))
     : [];
+  rosterPlayers = roster;
+  renderScoreboard();
   if (rosterUl) {
     rosterUl.innerHTML = '';
     roster.forEach((r)=>{
@@ -1645,6 +2104,7 @@ socket.on('gameStarted', ({ fairValue, productName, paused, price })=>{
   setPhaseBadge('running');
   setPauseBadge(Boolean(paused));
   if (paused) setTradingEnabled(false); else setTradingEnabled(true);
+  resetTaskState();
   goGame();
   ensureChart();
   resizeChart();
@@ -1660,6 +2120,10 @@ socket.on('gameReset', ()=>{
   myAvgCost=0; myPos=0;
   setPhaseBadge('lobby');
   setPauseBadge(false);
+  currentRole = null;
+  if (taskRoleName) taskRoleName.textContent = '—';
+  if (taskRoleOrg) taskRoleOrg.textContent = '—';
+  resetTaskState();
   if (lastNewsHeadline) lastNewsHeadline.textContent = 'Waiting for news…';
   nameInput.value = '';
   joinBtn.disabled = false; joinBtn.textContent = 'Join';
@@ -1734,6 +2198,13 @@ socket.on('you', ({ position, pnl, avgCost })=>{
   updateAveragePriceLine();
 });
 
+socket.on('execution', ({ qty, price })=>{
+  const signedQty = Number(qty || 0);
+  const execPrice = Number(price || 0);
+  if (!Number.isFinite(signedQty) || !Number.isFinite(execPrice)) return;
+  applyTaskFill({ qty: signedQty, price: execPrice });
+});
+
 socket.on('tradeMarker', ({ side, px, qty })=>{
   if (!myJoined) return;
   const s = (side==='BUY') ? +1 : -1;
@@ -1801,6 +2272,23 @@ bookTabs.forEach((tab) => {
     if (view) setBookView(view);
   });
 });
+
+taskTabs.forEach((tab) => {
+  tab.addEventListener('click', () => {
+    const view = tab.dataset.taskTab;
+    if (view) setTaskTab(view);
+  });
+});
+
+if (taskList) {
+  taskList.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('[data-task-complete]');
+    if (!btn) return;
+    completeTask();
+  });
+}
+
+setTaskTab('tasks');
 
 if (buyBtn) buyBtn.addEventListener('click', () => submitOrder('BUY'));
 if (sellBtn) sellBtn.addEventListener('click', () => submitOrder('SELL'));

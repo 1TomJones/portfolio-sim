@@ -77,6 +77,8 @@ function restartTickTimer() {
       emitOrders(sock);
     }
 
+    broadcastExecutions();
+
     if (state.tickCount % engine.config.leaderboardInterval === 0) broadcastRoster();
   }, engine.config.tickMs);
 }
@@ -187,6 +189,20 @@ function broadcastPriceSnapshot() {
     fair: snapshot.fairValue,
     priceMode: snapshot.priceMode,
   });
+}
+
+function broadcastExecutions() {
+  const events = engine.consumeExecutionEvents();
+  if (!events.length) return;
+  for (const evt of events) {
+    const socket = io.sockets.sockets.get(evt.playerId);
+    if (!socket) continue;
+    socket.emit("execution", {
+      qty: evt.qty,
+      price: evt.price,
+      t: evt.t,
+    });
+  }
 }
 
 function notifyParticipants(ids = []) {
@@ -369,6 +385,7 @@ io.on("connection", (socket) => {
 
     const participants = [socket.id, ...(result.fills ?? []).map((f) => f.ownerId)];
     notifyParticipants(participants);
+    broadcastExecutions();
     broadcastRoster();
     broadcastPriceSnapshot();
     broadcastBook();
@@ -394,6 +411,7 @@ io.on("connection", (socket) => {
 
     const participants = [socket.id, ...(result.fills ?? []).map((f) => f.ownerId)];
     notifyParticipants(participants);
+    broadcastExecutions();
     broadcastRoster();
     broadcastPriceSnapshot();
     broadcastBook();

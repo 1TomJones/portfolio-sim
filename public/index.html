@@ -118,22 +118,36 @@
     <div class="game-shell">
       <div class="left-col">
         <div class="chart-row">
-          <div class="panel card side-widget">
+          <div class="panel card side-widget tasks-card">
             <div class="panel-header">
-              <h3>Signal</h3>
+              <h3>Tasks</h3>
+              <div class="task-tabs" role="tablist" aria-label="Tasks panel">
+                <button type="button" class="chip-btn active" data-task-tab="tasks" aria-pressed="true">Tasks</button>
+                <button type="button" class="chip-btn" data-task-tab="scoreboard" aria-pressed="false">Scoreboard</button>
+              </div>
             </div>
-            <div class="side-widget-body">
-              <div class="side-widget-item">
-                <span class="label">Momentum</span>
-                <strong class="side-widget-value">Neutral</strong>
+            <div class="side-widget-body tasks-body">
+              <div class="tasks-view" data-task-view="tasks">
+                <div class="task-role">
+                  <span class="label">Role</span>
+                  <strong id="taskRoleName" class="side-widget-value">—</strong>
+                  <span id="taskRoleOrg" class="muted">—</span>
+                </div>
+                <div id="taskList" class="task-list"></div>
+                <div id="taskEmpty" class="task-empty muted">Waiting for tasks…</div>
+                <div class="task-meta">
+                  <div class="task-meta-row">
+                    <span class="label">Next task</span>
+                    <strong id="taskNextTimer">—</strong>
+                  </div>
+                  <div class="task-meta-row">
+                    <span class="label">Last result</span>
+                    <strong id="taskLastResult">—</strong>
+                  </div>
+                </div>
               </div>
-              <div class="side-widget-item">
-                <span class="label">Volatility</span>
-                <strong class="side-widget-value">Normal</strong>
-              </div>
-              <div class="side-widget-item">
-                <span class="label">Bias</span>
-                <strong class="side-widget-value">Balanced</strong>
+              <div class="tasks-view hidden" data-task-view="scoreboard">
+                <div id="scoreboard" class="scoreboard"></div>
               </div>
             </div>
           </div>

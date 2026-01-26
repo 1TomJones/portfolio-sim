@@ -20,6 +20,7 @@ export class MarketEngine {
     this.algoOrders = new Map();
     this.algoChildIndex = new Map();
     this.nextAlgoId = 1;
+    this.executionEvents = [];
     this.reset();
   }
 
@@ -45,6 +46,7 @@ export class MarketEngine {
     this.algoOrders = new Map();
     this.algoChildIndex = new Map();
     this.nextAlgoId = 1;
+    this.executionEvents = [];
     this.orderBook.reset(this.currentPrice);
   }
 
@@ -74,6 +76,7 @@ export class MarketEngine {
     this.algoOrders = new Map();
     this.algoChildIndex = new Map();
     this.nextAlgoId = 1;
+    this.executionEvents = [];
     this.orderBook.reset(price);
   }
 
@@ -87,6 +90,13 @@ export class MarketEngine {
       priceMode: this.priceMode,
       orderFlow: this.orderFlow,
     };
+  }
+
+  consumeExecutionEvents() {
+    if (!this.executionEvents.length) return [];
+    const events = this.executionEvents.slice();
+    this.executionEvents.length = 0;
+    return events;
   }
 
   getOrderBookView(levels = 12) {
@@ -1160,6 +1170,14 @@ export class MarketEngine {
 
     player.position = next;
     this.updatePnl(player);
+    if (player?.id) {
+      this.executionEvents.push({
+        playerId: player.id,
+        qty: actual,
+        price,
+        t: Date.now(),
+      });
+    }
     return actual;
   }
 
