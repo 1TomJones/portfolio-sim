@@ -853,6 +853,18 @@ function getTaskPrefillQty({ side, targetQty }) {
   return 0;
 }
 
+function getTaskPositionQty(task) {
+  if (!task) return 0;
+  const position = Number(myPos || 0);
+  if (task.side === 'BUY') {
+    return Math.max(0, position);
+  }
+  if (task.side === 'SELL') {
+    return Math.max(0, -position);
+  }
+  return 0;
+}
+
 function buildTask() {
   const role = currentRole ?? ROLE_PRESETS[0];
   const difficulty = pickDifficulty();
@@ -1003,7 +1015,8 @@ function renderTaskPanel() {
   if (taskEmpty) taskEmpty.classList.add('hidden');
   const task = activeTask;
   const timeLabel = formatTaskDuration(task);
-  const progressPct = clamp((task.filledQty / task.targetQty) * 100, 0, 100);
+  const positionQty = getTaskPositionQty(task);
+  const progressPct = clamp((positionQty / task.targetQty) * 100, 0, 100);
   const requiredAvgLabel = task.requiredAvgPrice ? formatPrice(task.requiredAvgPrice) : 'Not required';
   const avgFillLabel = Number.isFinite(task.avgFillPrice) ? formatPrice(task.avgFillPrice) : '—';
   const badgeClass = task.side === 'BUY' ? 'buy' : 'sell';
@@ -1024,7 +1037,7 @@ function renderTaskPanel() {
     <div class="task-detail-grid">
       <div class="task-detail-box"><span class="label">Time</span><strong class="task-detail-value">${timeLabel}</strong></div>
       <div class="task-detail-box"><span class="label">Target</span><strong class="task-detail-value">${formatVolume(task.targetQty)}</strong></div>
-      <div class="task-detail-box"><span class="label">Filled</span><strong class="task-detail-value">${formatVolume(task.filledQty)}</strong></div>
+      <div class="task-detail-box"><span class="label">Filled</span><strong class="task-detail-value">${formatVolume(positionQty)}</strong></div>
       <div class="task-detail-box"><span class="label">Arrival</span><strong class="task-detail-value">${formatPrice(task.arrivalPrice)}</strong></div>
       <div class="task-detail-box"><span class="label">Req avg</span><strong class="task-detail-value">${requiredAvgLabel}</strong></div>
       <div class="task-detail-box"><span class="label">Avg fill</span><strong class="task-detail-value">${avgFillLabel}</strong></div>
@@ -2252,6 +2265,7 @@ socket.on('you', ({ position, pnl, avgCost })=>{
     avgLbl.textContent = myAvgCost ? formatPrice(myAvgCost) : '—';
   }
   updateAveragePriceLine();
+  renderTaskPanel();
 });
 
 socket.on('execution', ({ qty, price })=>{
