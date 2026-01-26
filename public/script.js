@@ -2114,7 +2114,7 @@ function handleJoinAck(ack, { resetButton = true } = {}){
       setPhaseBadge('lobby');
       setPauseBadge(false);
     } else {
-      productLbl.textContent = ack.productName || 'Demo Asset';
+      if (productLbl) productLbl.textContent = ack.productName || 'Demo Asset';
       prepareNewRound(ack.price ?? ack.fairValue ?? 100);
       setPhaseBadge('running');
       setPauseBadge(Boolean(ack.paused));
@@ -2168,7 +2168,7 @@ socket.on('orderBook', (book)=>{ renderOrderBook(book); });
 
 socket.on('gameStarted', ({ fairValue, productName, paused, price })=>{
   if (!myJoined) return;
-  productLbl.textContent = productName || 'Demo Asset';
+  if (productLbl) productLbl.textContent = productName || 'Demo Asset';
   prepareNewRound(price ?? fairValue ?? 100);
   setPhaseBadge('running');
   setPauseBadge(Boolean(paused));

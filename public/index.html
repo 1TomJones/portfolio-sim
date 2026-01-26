@@ -10,7 +10,7 @@
   <header class="brandbar">
     <div class="brand-left">
       <img src="/assets/Kent_Invest_Logo.png" alt="Kent Invest" class="brandlogo" />
-      <div class="brandtitle">KI - Live Trading Sim</div>
+      <div class="brandtitle">Trader Simulation</div>
     </div>
     <div class="brand-right">
       <div class="hud-cluster">
@@ -25,29 +25,19 @@
           <div id="lastNewsHeadline" class="hud-news-text">Waiting for news…</div>
         </div>
       </div>
-      <div class="brand-metrics">
-        <div class="metric">
-          <span class="metric-label">Product</span>
-          <span id="productLbl" class="metric-value">Demo Asset</span>
+      <div class="brand-actions">
+        <div class="brand-metrics">
+          <div class="metric">
+            <span class="metric-label">Position</span>
+            <span id="posLbl" class="metric-value">0</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">PnL <span class="info-hint inline" data-tooltip="Realized + mark-to-market PnL based on fills and the last trade price.">?</span></span>
+            <span id="pnlLbl" class="metric-value">0.00</span>
+          </div>
         </div>
-        <div class="metric">
-          <span class="metric-label">Price</span>
-          <span id="priceLbl" class="metric-value">—</span>
-        </div>
-        <div class="metric">
-          <span class="metric-label">Position</span>
-          <span id="posLbl" class="metric-value">0</span>
-        </div>
-        <div class="metric">
-          <span class="metric-label">PnL <span class="info-hint inline" data-tooltip="Realized + mark-to-market PnL based on fills and the last trade price.">?</span></span>
-          <span id="pnlLbl" class="metric-value">0.00</span>
-        </div>
-        <div class="metric">
-          <span class="metric-label">Avg Cost</span>
-          <span id="avgLbl" class="metric-value">—</span>
-        </div>
+        <button id="gameFullscreenBtn" type="button" class="fullscreen-btn" data-fullscreen>Enter Fullscreen</button>
       </div>
-      <button id="gameFullscreenBtn" type="button" class="fullscreen-btn" data-fullscreen>Enter Fullscreen</button>
     </div>
   </header>
 

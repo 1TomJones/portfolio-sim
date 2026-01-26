@@ -4,7 +4,7 @@
   --buy:#2ecc71; --sell:#ff5c5c; --news0:#10192a; --newsUp:#163523; --newsDn:#361b25;
   --bid-strong:#0f3020; --ask-strong:#3c1622;
   --best-glow:#a1c4ff;
-  --brandbar-height:72px;
+  --brandbar-height:120px;
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -278,10 +278,11 @@ button:disabled{opacity:.6;cursor:not-allowed}
 
 .brandbar{display:flex;justify-content:space-between;align-items:center;gap:24px;padding:14px 28px;border-bottom:1px solid var(--grid);background:#0d1423;position:sticky;top:0;z-index:5;flex-wrap:wrap;min-height:var(--brandbar-height)}
 .brand-left{display:flex;align-items:center;gap:14px;min-width:220px}
-.brandlogo{height:32px;width:auto}
-.brandtitle{font-weight:700;color:var(--text);font-size:1.2rem;letter-spacing:0.04em}
-.brand-right{display:flex;align-items:flex-start;justify-content:flex-end;gap:18px;flex-wrap:wrap}
-.hud-cluster{display:flex;flex-direction:column;gap:8px;min-width:280px}
+.brandbar .brandlogo{height:96px;width:auto}
+.admin-header .brandlogo{height:32px;width:auto}
+.brandtitle{font-weight:700;color:var(--text);font-size:1.35rem;letter-spacing:0.04em}
+.brand-right{display:flex;align-items:center;justify-content:flex-end;gap:20px;flex-wrap:wrap}
+.hud-cluster{display:flex;flex-direction:column;gap:10px;min-width:280px}
 .hud-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .hud-pill{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.16);color:var(--text)}
 .hud-pill[data-state="connecting"]{background:rgba(109,168,255,0.14);border-color:rgba(109,168,255,0.45)}
@@ -290,6 +291,7 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .hud-pill[data-phase="running"]{background:rgba(46,204,113,0.12);border-color:rgba(46,204,113,0.45);color:#c8f5dd}
 .hud-news{display:flex;flex-direction:column;gap:4px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px 10px;min-width:260px;max-width:460px}
 .hud-news-text{font-weight:700;letter-spacing:0.02em;color:#d5e7ff}
+.brand-actions{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
 .brand-metrics{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap}
 .metric{display:flex;flex-direction:column;gap:2px;min-width:72px}
 .metric-label{font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
