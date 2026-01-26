@@ -1880,6 +1880,64 @@ export class MarketEngine {
     return { ok: true, canceled, flatten };
   }
 
+  completeTaskTransfer({
+    id,
+    side,
+    targetQty,
+    filledQty,
+    avgFillPrice,
+    requiredAvgPrice,
+  } = {}) {
+    const player = this.players.get(id);
+    if (!player) return { ok: false, reason: "unknown-player" };
+    const normalizedSide = side === "SELL" ? "SELL" : "BUY";
+    const desiredQty = Math.max(
+      0,
+      Math.min(Math.abs(Number(targetQty) || 0), Math.abs(Number(filledQty) || 0)),
+    );
+    if (desiredQty <= 0) return { ok: false, reason: "no-qty" };
+
+    const position = Number(player.position || 0);
+    const positionSign = Math.sign(position);
+    const expectedSign = normalizedSide === "BUY" ? 1 : -1;
+    if (positionSign !== expectedSign) {
+      return { ok: false, reason: "position-mismatch", available: Math.abs(position) };
+    }
+    const transferableQty = Math.min(desiredQty, Math.abs(position));
+    if (transferableQty <= 0) {
+      return { ok: false, reason: "no-available", available: Math.abs(position) };
+    }
+
+    const basePrice = Number.isFinite(Number(avgFillPrice))
+      ? Number(avgFillPrice)
+      : Number.isFinite(Number(requiredAvgPrice))
+        ? Number(requiredAvgPrice)
+        : Number(this.currentPrice);
+    const signedQty = normalizedSide === "BUY" ? -transferableQty : transferableQty;
+
+    const actual = this._applyExecution(player, signedQty, basePrice);
+    if (Math.abs(actual) > 1e-9 && Number.isFinite(Number(requiredAvgPrice)) && Number.isFinite(Number(avgFillPrice))) {
+      const perfPnl =
+        normalizedSide === "BUY"
+          ? (Number(requiredAvgPrice) - Number(avgFillPrice)) * Math.abs(actual)
+          : (Number(avgFillPrice) - Number(requiredAvgPrice)) * Math.abs(actual);
+      player.cash += perfPnl;
+      this.updatePnl(player);
+    }
+
+    return {
+      ok: true,
+      transferred: Math.abs(actual),
+      price: basePrice,
+      performancePnl:
+        Number.isFinite(Number(requiredAvgPrice)) && Number.isFinite(Number(avgFillPrice))
+          ? normalizedSide === "BUY"
+            ? (Number(requiredAvgPrice) - Number(avgFillPrice)) * Math.abs(actual)
+            : (Number(avgFillPrice) - Number(requiredAvgPrice)) * Math.abs(actual)
+          : 0,
+    };
+  }
+
   pushNews(_input) {
     const delta = Number(_input?.delta);
     if (Number.isFinite(delta) && delta !== 0) {

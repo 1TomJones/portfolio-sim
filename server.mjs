@@ -479,6 +479,28 @@ io.on("connection", (socket) => {
     ack?.({ ok: true, canceled: result.canceled, flatten: result.flatten });
   });
 
+  socket.on("completeTask", (payload, ack) => {
+    if (!gameActive) {
+      ack?.({ ok: false, reason: "not-active" });
+      return;
+    }
+    const result = engine.completeTaskTransfer({
+      id: socket.id,
+      side: payload?.side,
+      targetQty: payload?.targetQty,
+      filledQty: payload?.filledQty,
+      avgFillPrice: payload?.avgFillPrice,
+      requiredAvgPrice: payload?.requiredAvgPrice,
+    });
+    if (!result?.ok) {
+      ack?.(result ?? { ok: false, reason: "unknown" });
+      return;
+    }
+    emitYou(socket);
+    broadcastRoster();
+    ack?.(result);
+  });
+
   socket.on("chatMessage", (payload, ack) => {
     const text = String(payload?.text ?? "").trim();
     if (!text) {

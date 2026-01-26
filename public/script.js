@@ -896,7 +896,7 @@ function calculateMarketEfficiency(task) {
 
 function calculatePerformancePnl(task) {
   if (!task?.requiredAvgPrice || !Number.isFinite(task.avgFillPrice)) return 0;
-  const qty = task.filledQty;
+  const qty = Math.min(task.filledQty, task.targetQty);
   if (task.side === 'BUY') {
     return (task.requiredAvgPrice - task.avgFillPrice) * qty;
   }
@@ -912,6 +912,7 @@ function completeTask() {
   const completionScore = clamp((activeTask.filledQty / activeTask.targetQty) * 100, 0, 100);
   const speedScore = clamp(100 - overtimeRatio * 100, 0, 100);
   const marketEfficiencyScore = calculateMarketEfficiency(activeTask);
+  const transferredQty = Math.min(activeTask.filledQty, activeTask.targetQty);
   const performancePnl = calculatePerformancePnl(activeTask);
   const commission = 0;
   const totalPnl = performancePnl + commission;
@@ -925,8 +926,22 @@ function completeTask() {
     pnl: totalPnl,
     filledQty: activeTask.filledQty,
     targetQty: activeTask.targetQty,
+    transferredQty,
     completedAt: now,
   };
+  if (socket && myJoined) {
+    socket.emit('completeTask', {
+      side: activeTask.side,
+      targetQty: activeTask.targetQty,
+      filledQty: activeTask.filledQty,
+      avgFillPrice: activeTask.avgFillPrice,
+      requiredAvgPrice: activeTask.requiredAvgPrice,
+    }, (resp) => {
+      if (!resp?.ok) {
+        updateTradeStatus('Unable to transfer task shares.', 'error');
+      }
+    });
+  }
   taskHistory.push(result);
   activeTask.status = 'completed';
   activeTask = null;
