@@ -1,5 +1,3 @@
-/* server.mjs — smooth trending dynamics, full drop-in */
-
 import express from "express";
 import http from "http";
 import { Server } from "socket.io";
@@ -7,13 +5,8 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import { BotManager } from "./src/engine/botManager.js";
-import { MarketEngine } from "./src/engine/marketEngine.js";
-import { TickMetricsLogger } from "./src/engine/metricsLogger.js";
-
-/* ---------- Bootstrapping / Static ---------- */
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
@@ -27,627 +20,330 @@ app.get("/healthz", (_req, res) => res.send("ok"));
 
 const PORT = process.env.PORT || 10000;
 
-/* ---------- Game State ---------- */
-let gameActive = false;
-let paused = false;
+const TICK_MS = 500;
+const TICKS_PER_CANDLE = 10;
+const MAX_CANDLES = 50;
+
+const ASSET_SYMBOLS = [
+  "ALPHA",
+  "BRAVO",
+  "CRUX",
+  "DELTA",
+  "ECHO",
+  "FALCON",
+  "GAMMA",
+  "HELIX",
+  "ION",
+  "JUNO",
+];
+
+const players = new Map();
 let tickTimer = null;
-const chatHistory = [];
-const MAX_CHAT = 120;
-const newsSeries = {
-  active: false,
-  entries: [],
-  minDelayMs: 15000,
-  maxDelayMs: 45000,
-  timeout: null,
-  index: 0,
-};
 
-const engine = new MarketEngine();
-const bots = new BotManager({ market: engine, logger: console });
-const metricsLogger = new TickMetricsLogger({
-  maxEntries: 4000,
-  filePath: process.env.METRICS_LOG_PATH || path.join(__dirname, "logs", "tick-metrics.log"),
-  rotateEvery: 20000,
-});
-
-bots.on("summary", (payload) => io.emit("botSummary", payload));
-bots.on("decision", (payload) => io.emit("botDecision", payload));
-bots.on("telemetry", (payload) => io.emit("botTelemetry", payload));
-
-function restartTickTimer() {
-  clearInterval(tickTimer);
-  tickTimer = setInterval(() => {
-    if (!gameActive || paused) return;
-
-    const state = engine.stepTick();
-    bots.tick(state);
-
-    if (state?.metrics) {
-      const entry = metricsLogger.record({ ...state.metrics, mode: engine.priceMode });
-      if (entry) io.emit("tickMetrics", entry);
-    }
-
-    broadcastPriceSnapshot();
-    broadcastBook();
-    broadcastDarkBook();
-    broadcastIcebergBook();
-
-    for (const [, sock] of io.sockets.sockets) {
-      emitYou(sock);
-      emitOrders(sock);
-    }
-
-    broadcastExecutions();
-
-    if (state.tickCount % engine.config.leaderboardInterval === 0) broadcastRoster();
-  }, engine.config.tickMs);
+function randomStep() {
+  return Math.random() < 0.5 ? -1 : 1;
 }
 
-function publicPlayers() {
-  return engine.getPublicRoster();
-}
-
-function emitYou(socket) {
-  const player = engine.getPlayer(socket.id);
-  if (player) {
-    socket.emit("you", {
-      position: Number((player.position ?? 0).toFixed(2)),
-      pnl: Number((player.pnl || 0).toFixed(2)),
-      avgCost: player.avgPrice,
-    });
+function buildInitialCandles(startPrice) {
+  let price = startPrice;
+  const candles = [];
+  const startTime = Math.floor(Date.now() / 1000) - MAX_CANDLES * TICKS_PER_CANDLE;
+  for (let i = 0; i < MAX_CANDLES; i += 1) {
+    const time = startTime + i * TICKS_PER_CANDLE;
+    let open = price;
+    let high = price;
+    let low = price;
+    for (let t = 0; t < TICKS_PER_CANDLE; t += 1) {
+      price += randomStep();
+      high = Math.max(high, price);
+      low = Math.min(low, price);
+    }
+    const close = price;
+    candles.push({ time, open, high, low, close });
   }
+  return { candles, price };
 }
 
-function emitOrders(socket) {
-  const orders = engine.getPlayerOrders(socket.id);
-  socket.emit("openOrders", orders);
-}
-
-function normalizeNewsEntry(entry = {}) {
-  const delta = Number(entry?.delta);
-  const sentimentRaw = Number(entry?.sentiment);
-  const intensityRaw = Number(entry?.intensity);
-  const halfLifeRaw = Number(entry?.halfLifeSec);
+function createAsset(symbol, index) {
+  const seed = 90 + index * 15;
+  const initial = buildInitialCandles(seed);
+  const lastTime = initial.candles[initial.candles.length - 1]?.time ?? Math.floor(Date.now() / 1000);
   return {
-    text: String(entry?.text || ""),
-    delta: Number.isFinite(delta) ? delta : 0,
-    sentiment: Number.isFinite(sentimentRaw) ? sentimentRaw : Math.sign(delta || 0),
-    intensity: Number.isFinite(intensityRaw) ? Math.max(0, intensityRaw) : Math.abs(delta || 0),
-    halfLifeSec: Number.isFinite(halfLifeRaw) ? Math.max(1, halfLifeRaw) : 180,
+    id: `asset-${index + 1}`,
+    symbol,
+    price: initial.price,
+    candles: initial.candles,
+    currentCandle: {
+      time: lastTime + TICKS_PER_CANDLE,
+      open: initial.price,
+      high: initial.price,
+      low: initial.price,
+      close: initial.price,
+    },
+    ticksInCandle: 0,
+    nextCandleTime: lastTime + TICKS_PER_CANDLE,
   };
 }
 
-function applyNewsPayload(entry) {
-  const payload = normalizeNewsEntry(entry);
-  engine.pushNews(payload);
-  io.emit("news", { ...payload, t: Date.now() });
+const assets = ASSET_SYMBOLS.map((symbol, index) => createAsset(symbol, index));
+
+function ensurePosition(player, assetId) {
+  if (!player.positions[assetId]) {
+    player.positions[assetId] = { position: 0, avgCost: 0 };
+  }
+  return player.positions[assetId];
 }
 
-function clearNewsSeriesTimer() {
-  if (newsSeries.timeout) {
-    clearTimeout(newsSeries.timeout);
-    newsSeries.timeout = null;
+function applyFillToPosition(positionData, qtySigned, price) {
+  const { position, avgCost } = positionData;
+  const newPos = position + qtySigned;
+
+  if (position === 0) {
+    positionData.position = newPos;
+    positionData.avgCost = newPos === 0 ? 0 : price;
+    return;
+  }
+
+  if (Math.sign(position) === Math.sign(qtySigned)) {
+    positionData.position = newPos;
+    positionData.avgCost = newPos === 0 ? 0 : (position * avgCost + qtySigned * price) / newPos;
+    return;
+  }
+
+  if (newPos === 0) {
+    positionData.position = 0;
+    positionData.avgCost = 0;
+    return;
+  }
+
+  if (Math.sign(newPos) === Math.sign(position)) {
+    positionData.position = newPos;
+    return;
+  }
+
+  positionData.position = newPos;
+  positionData.avgCost = price;
+}
+
+function publishPortfolio(player) {
+  const positions = Object.entries(player.positions).map(([assetId, data]) => ({
+    assetId,
+    position: data.position,
+    avgCost: data.avgCost,
+  }));
+  const socket = io.sockets.sockets.get(player.id);
+  if (socket) {
+    socket.emit("portfolio", { positions });
+    socket.emit("openOrders", { orders: player.orders });
   }
 }
 
-function nextSeriesDelay() {
-  const min = Math.max(1000, newsSeries.minDelayMs || 1000);
-  const max = Math.max(min, newsSeries.maxDelayMs || min);
-  if (max === min) return min;
-  return Math.floor(min + Math.random() * (max - min));
-}
-
-function scheduleNextNews() {
-  clearNewsSeriesTimer();
-  if (!newsSeries.active) return;
-  if (!gameActive || paused) return;
-  if (!newsSeries.entries.length) return;
-  const delay = nextSeriesDelay();
-  newsSeries.timeout = setTimeout(() => {
-    if (!newsSeries.active) return;
-    if (!gameActive || paused) {
-      scheduleNextNews();
-      return;
-    }
-    const entry = newsSeries.entries[newsSeries.index] || newsSeries.entries[0];
-    newsSeries.index = (newsSeries.index + 1) % newsSeries.entries.length;
-    applyNewsPayload(entry);
-    scheduleNextNews();
-  }, delay);
-}
-
-function broadcastRoster() {
-  io.emit("playerList", publicPlayers());
-}
-
-function broadcastBook(levels = 18) {
-  const bookView = engine.getOrderBookView(levels);
-  if (bookView) {
-    io.emit("orderBook", bookView);
-  }
-}
-
-function broadcastDarkBook(levels = 18) {
-  const bookView = engine.getDarkBookView(levels);
-  if (bookView) {
-    io.emit("darkBook", bookView);
-    io.emit("darkOrders", { orders: bookView.orders });
-  }
-}
-
-function broadcastIcebergBook() {
-  for (const socket of io.sockets.sockets.values()) {
-    socket.emit("icebergBook", engine.getIcebergBookView(socket.id));
-  }
-}
-
-function broadcastPriceSnapshot() {
-  const snapshot = engine.getSnapshot();
-  io.emit("priceUpdate", {
-    t: Date.now(),
-    price: snapshot.price,
-    fair: snapshot.fairValue,
-    priceMode: snapshot.priceMode,
-  });
-}
-
-function broadcastExecutions() {
-  const events = engine.consumeExecutionEvents();
-  if (!events.length) return;
-  for (const evt of events) {
-    const socket = io.sockets.sockets.get(evt.playerId);
-    if (!socket) continue;
+function fillOrder(player, order, asset) {
+  const positionData = ensurePosition(player, order.assetId);
+  const qtySigned = order.side === "buy" ? order.qty : -order.qty;
+  applyFillToPosition(positionData, qtySigned, order.price);
+  const socket = io.sockets.sockets.get(player.id);
+  if (socket) {
     socket.emit("execution", {
-      qty: evt.qty,
-      price: evt.price,
-      t: evt.t,
+      assetId: order.assetId,
+      side: order.side,
+      qty: order.qty,
+      price: order.price,
+      t: Date.now(),
     });
   }
+  publishPortfolio(player);
+  asset.lastTrade = {
+    price: order.price,
+    side: order.side,
+    t: Date.now(),
+  };
 }
 
-function notifyParticipants(ids = []) {
-  const unique = new Set(ids.filter(Boolean));
-  for (const id of unique) {
-    const client = io.sockets.sockets.get(id);
-    if (client) {
-      emitYou(client);
-      emitOrders(client);
+function processLimitOrdersForAsset(asset) {
+  const filledOrderIds = new Set();
+  for (const player of players.values()) {
+    for (const order of player.orders) {
+      if (order.assetId !== asset.id || order.type !== "limit") continue;
+      if (filledOrderIds.has(order.id)) continue;
+      if (order.side === "buy" && asset.price <= order.price) {
+        fillOrder(player, order, asset);
+        filledOrderIds.add(order.id);
+      } else if (order.side === "sell" && asset.price >= order.price) {
+        fillOrder(player, order, asset);
+        filledOrderIds.add(order.id);
+      }
+    }
+    if (filledOrderIds.size) {
+      player.orders = player.orders.filter((order) => !filledOrderIds.has(order.id));
+      publishPortfolio(player);
     }
   }
 }
 
-/* ---------- Admin API ---------- */
-app.get("/api/bots", (_req, res) => {
-  res.json(bots.getSummary());
-});
+function stepTick() {
+  const updates = [];
+  for (const asset of assets) {
+    asset.price += randomStep();
 
-app.get("/api/metrics", (_req, res) => {
-  res.json({ ok: true, entries: metricsLogger.latest(360) });
-});
+    if (!asset.currentCandle) {
+      asset.currentCandle = {
+        time: asset.nextCandleTime,
+        open: asset.price,
+        high: asset.price,
+        low: asset.price,
+        close: asset.price,
+      };
+      asset.ticksInCandle = 0;
+    }
 
-app.get("/api/bots/:id", (req, res) => {
-  const detail = bots.getDetail(req.params.id);
-  if (!detail) {
-    res.status(404).json({ ok: false, message: "bot-not-found" });
-    return;
+    asset.currentCandle.close = asset.price;
+    asset.currentCandle.high = Math.max(asset.currentCandle.high, asset.price);
+    asset.currentCandle.low = Math.min(asset.currentCandle.low, asset.price);
+    asset.ticksInCandle += 1;
+
+    let isNewCandle = false;
+    let completedCandle = null;
+    if (asset.ticksInCandle >= TICKS_PER_CANDLE) {
+      completedCandle = asset.currentCandle;
+      asset.candles.push(completedCandle);
+      if (asset.candles.length > MAX_CANDLES) {
+        asset.candles.shift();
+      }
+      asset.nextCandleTime += TICKS_PER_CANDLE;
+      asset.currentCandle = null;
+      asset.ticksInCandle = 0;
+      isNewCandle = true;
+    }
+
+    processLimitOrdersForAsset(asset);
+
+    updates.push({
+      id: asset.id,
+      symbol: asset.symbol,
+      price: asset.price,
+      candle: asset.currentCandle,
+      isNewCandle,
+      completedCandle,
+      lastTrade: asset.lastTrade || null,
+    });
   }
-  res.json({ ok: true, bot: detail });
-});
 
-app.get("/api/admin/book", (req, res) => {
-  const levels = Number.isFinite(+req.query.levels) ? Math.max(1, +req.query.levels) : 28;
-  const book = engine.getOrderBookView(levels);
-  res.json({ ok: true, book });
-});
+  io.emit("assetTick", { assets: updates });
+}
 
-app.get("/api/admin/constraints", (_req, res) => {
-  res.json({ ok: true, constraints: engine.getPlayerConstraints() });
-});
+function startTicking() {
+  if (tickTimer) clearInterval(tickTimer);
+  tickTimer = setInterval(stepTick, TICK_MS);
+}
 
-app.patch("/api/admin/constraints", (req, res) => {
-  const payload = req.body || {};
-  const maxPosition = payload.maxPosition;
-  const maxLoss = payload.maxLoss;
-  const constraints = engine.setPlayerConstraints({ maxPosition, maxLoss });
-  res.json({ ok: true, constraints });
-});
+function initialAssetPayload() {
+  return assets.map((asset) => ({
+    id: asset.id,
+    symbol: asset.symbol,
+    price: asset.price,
+    candles: asset.candles,
+    candle: asset.currentCandle,
+  }));
+}
 
-app.get("/api/admin/tick", (_req, res) => {
-  const tickMs = Number(engine.config.tickMs ?? 250);
-  const ticksPerSecond = tickMs > 0 ? Number((1000 / tickMs).toFixed(2)) : null;
-  res.json({ ok: true, tick: { tickMs, ticksPerSecond } });
-});
-
-app.patch("/api/admin/tick", (req, res) => {
-  const payload = req.body || {};
-  let tickMs = null;
-  if (Number.isFinite(payload.tickMs)) {
-    tickMs = Number(payload.tickMs);
-  } else if (Number.isFinite(payload.ticksPerSecond)) {
-    const tps = Number(payload.ticksPerSecond);
-    tickMs = tps > 0 ? 1000 / tps : null;
-  }
-  if (!Number.isFinite(tickMs) || tickMs <= 0) {
-    res.status(400).json({ ok: false, message: "invalid-tick-rate" });
-    return;
-  }
-  const clamped = Math.max(20, Math.round(tickMs));
-  engine.config.tickMs = clamped;
-  if (gameActive) {
-    restartTickTimer();
-  }
-  const ticksPerSecond = Number((1000 / clamped).toFixed(2));
-  res.json({ ok: true, tick: { tickMs: clamped, ticksPerSecond } });
-});
-
-app.post("/api/bots/reload", (req, res) => {
-  const payload = req.body;
-  if (payload?.reset) {
-    bots.clearPatchedConfigs();
-  }
-  if (Array.isArray(payload?.configs) && payload.configs.length) {
-    bots.loadConfig(payload.configs);
-    res.json({ ok: true, source: "custom" });
-    return;
-  }
-  bots.loadDefaultBots();
-  res.json({ ok: true, source: "default" });
-});
-
-app.patch("/api/bots/:id", (req, res) => {
-  const ok = bots.applyPatch(req.params.id, req.body || {});
-  if (!ok) {
-    res.status(404).json({ ok: false, message: "bot-not-found" });
-    return;
-  }
-  res.json({ ok: true, bot: bots.getDetail(req.params.id) });
-});
-
-app.post("/api/bots/:id/toggle", (req, res) => {
-  const enabled = req.body?.enabled !== false;
-  const ok = bots.toggleBot(req.params.id, enabled);
-  if (!ok) {
-    res.status(404).json({ ok: false, message: "bot-not-found" });
-    return;
-  }
-  res.json({ ok: true, bot: bots.getDetail(req.params.id) });
-});
-
-app.post("/api/scenarios/:name", (req, res) => {
-  const result = bots.runScenario(req.params.name);
-  res.status(result.ok ? 200 : 400).json(result);
-});
-
-app.get("/api/book/levels/:price", (req, res) => {
-  const price = Number(req.params.price);
-  if (!Number.isFinite(price)) {
-    res.status(400).json({ ok: false, message: "bad-price" });
-    return;
-  }
-  const detail = engine.getLevelDetail(price);
-  res.json({ ok: true, detail });
-});
-
-/* ---------- Sockets ---------- */
 io.on("connection", (socket) => {
-  // Let the client know the phase & roster (client stays on name screen until it submits)
-  socket.emit("phase", gameActive ? "running" : "lobby");
-  socket.emit("playerList", publicPlayers());
-  socket.emit("priceMode", engine.priceMode);
-  socket.emit("orderBook", engine.getOrderBookView(18));
-  socket.emit("darkBook", engine.getDarkBookView(18));
-  socket.emit("darkOrders", engine.getDarkOrdersView());
-  socket.emit("icebergBook", engine.getIcebergBookView(socket.id));
-  socket.emit("chatHistory", chatHistory);
-  socket.emit("botSummary", bots.getSummary());
+  socket.emit("phase", "running");
+  socket.emit("assetSnapshot", { assets: initialAssetPayload(), tickMs: TICK_MS });
 
   socket.on("join", (name, ack) => {
-    const nm = String(name||"Player").trim() || "Player";
-    const player = engine.registerPlayer(socket.id, nm);
-    broadcastRoster();
-
-    if (ack) {
-      ack({
-        ok: true,
-        phase: gameActive ? "running" : "lobby",
-        productName: engine.getSnapshot().productName,
-        fairValue: engine.fairValue,
-        price: engine.currentPrice,
-        paused,
-        orders: engine.getPlayerOrders(socket.id),
-      });
-    }
-    if (player) {
-      emitYou(socket);
-      emitOrders(socket);
-    }
-  });
-
-  socket.on("disconnect", () => {
-    engine.removePlayer(socket.id);
-    broadcastRoster();
-    broadcastBook();
-    broadcastDarkBook();
-    broadcastIcebergBook();
-  });
-
-  // Trades (only if running & not paused). Clamp exposure to [-5, +5]
-  socket.on("trade", (dir) => {
-    if (!gameActive || paused) return;
-    const result = engine.processTrade(socket.id, dir);
-    if (!result?.filled) return;
-
-    const { side: tradeSide, qty } = result;
-    const execPrice = result.fills?.at(-1)?.price ?? result.price ?? engine.currentPrice;
-
-    socket.emit("tradeMarker", { t: Date.now(), side: tradeSide, px: execPrice, qty });
-    emitYou(socket);
-
-    const participants = [socket.id, ...(result.fills ?? []).map((f) => f.ownerId)];
-    notifyParticipants(participants);
-    broadcastExecutions();
-    broadcastRoster();
-    broadcastPriceSnapshot();
-    broadcastBook();
-    broadcastIcebergBook();
-    if (result.type === "dark") {
-      broadcastDarkBook();
-    }
+    const nm = String(name || "Player").trim() || "Player";
+    players.set(socket.id, {
+      id: socket.id,
+      name: nm,
+      positions: {},
+      orders: [],
+    });
+    ack?.({ ok: true, phase: "running", assets: initialAssetPayload(), tickMs: TICK_MS });
+    publishPortfolio(players.get(socket.id));
   });
 
   socket.on("submitOrder", (order, ack) => {
-    if (!gameActive || paused) {
-      ack?.({ ok: false, reason: "not-active" });
+    const player = players.get(socket.id);
+    if (!player) {
+      ack?.({ ok: false, reason: "not-joined" });
       return;
     }
-    const result = engine.submitOrder(socket.id, order);
-    if (!result?.ok) {
-      ack?.(result ?? { ok: false, reason: "unknown" });
+    const asset = assets.find((item) => item.id === order?.assetId);
+    if (!asset) {
+      ack?.({ ok: false, reason: "unknown-asset" });
       return;
     }
+    const qty = Math.max(1, Math.floor(Number(order?.qty || 0)));
+    const side = order?.side === "sell" ? "sell" : "buy";
+    const type = order?.type === "limit" ? "limit" : "market";
+    const limitPrice = Number(order?.price);
 
-    emitYou(socket);
-    emitOrders(socket);
-
-    const participants = [socket.id, ...(result.fills ?? []).map((f) => f.ownerId)];
-    notifyParticipants(participants);
-    broadcastExecutions();
-    broadcastRoster();
-    broadcastPriceSnapshot();
-    broadcastBook();
-    broadcastIcebergBook();
-    if (result.type === "dark") {
-      broadcastDarkBook();
-    }
-
-    ack?.({
-      ok: true,
-      type: result.type,
-      filled: result.filled,
-      price: result.price,
-      resting: result.resting,
-      side: result.side,
-      queued: result.queued ?? null,
-    });
-  });
-
-  socket.on("cancelOrders", (ids, ack) => {
-    const canceled = engine.cancelOrders(socket.id, Array.isArray(ids) ? ids : undefined);
-    if (canceled.length) {
-      emitOrders(socket);
-      broadcastBook();
-      broadcastDarkBook();
-      broadcastIcebergBook();
-    }
-    ack?.({ ok: true, canceled });
-  });
-
-  socket.on("cancelAll", (ack) => {
-    const canceled = engine.cancelOrders(socket.id);
-    if (canceled.length) {
-      emitOrders(socket);
-      broadcastBook();
-      broadcastDarkBook();
-      broadcastIcebergBook();
-    }
-    ack?.({ ok: true, canceled });
-  });
-
-  socket.on("closeAll", (ack) => {
-    const result = engine.closeAllForPlayer(socket.id);
-    if (!result?.ok) {
-      ack?.(result ?? { ok: false, reason: "unknown" });
+    if (!Number.isFinite(qty) || qty <= 0) {
+      ack?.({ ok: false, reason: "bad-qty" });
       return;
     }
 
-    emitYou(socket);
-    emitOrders(socket);
-    broadcastBook();
-    broadcastDarkBook();
-    broadcastIcebergBook();
-
-    const fills = result.flatten?.fills ?? [];
-    const executedQty = Math.abs(Number(result.flatten?.qty ?? 0));
-    if (fills.length) {
-      notifyParticipants([socket.id, ...fills.map((fill) => fill.ownerId)]);
-    }
-    if (fills.length || executedQty > 0) {
-      broadcastRoster();
-      broadcastPriceSnapshot();
-    }
-
-    ack?.({ ok: true, canceled: result.canceled, flatten: result.flatten });
-  });
-
-  socket.on("completeTask", (payload, ack) => {
-    if (!gameActive) {
-      ack?.({ ok: false, reason: "not-active" });
+    if (type === "market") {
+      fillOrder(player, {
+        assetId: asset.id,
+        side,
+        qty,
+        price: asset.price,
+      }, asset);
+      ack?.({ ok: true, filled: true });
       return;
     }
-    const result = engine.completeTaskTransfer({
-      id: socket.id,
-      side: payload?.side,
-      targetQty: payload?.targetQty,
-      filledQty: payload?.filledQty,
-      avgFillPrice: payload?.avgFillPrice,
-      requiredAvgPrice: payload?.requiredAvgPrice,
-    });
-    if (!result?.ok) {
-      ack?.(result ?? { ok: false, reason: "unknown" });
-      return;
-    }
-    emitYou(socket);
-    broadcastRoster();
-    ack?.(result);
-  });
 
-  socket.on("chatMessage", (payload, ack) => {
-    const text = String(payload?.text ?? "").trim();
-    if (!text) {
-      ack?.({ ok: false, reason: "empty" });
+    if (!Number.isFinite(limitPrice)) {
+      ack?.({ ok: false, reason: "bad-price" });
       return;
     }
-    const player = engine.getPlayer(socket.id);
-    const message = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      from: player?.name ?? "Player",
-      text: text.slice(0, 240),
+
+    const orderData = {
+      id: `order-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      assetId: asset.id,
+      side,
+      qty,
+      price: Number(limitPrice.toFixed(2)),
+      type,
       t: Date.now(),
     };
-    chatHistory.push(message);
-    while (chatHistory.length > MAX_CHAT) chatHistory.shift();
-    io.emit("chatMessage", message);
-    ack?.({ ok: true });
+    player.orders.push(orderData);
+    publishPortfolio(player);
+    ack?.({ ok: true, filled: false });
   });
 
-  /* ----- Admin controls ----- */
-
-  // Start new round (from lobby)
-  socket.on("startGame", ({ startPrice, product, bots: customBots, resetBots } = {}) => {
-    if (gameActive) return;
-
-    engine.startRound({ startPrice, productName: product });
-    engine.setPriceMode(engine.priceMode || engine.config.defaultPriceMode);
-    if (Array.isArray(customBots) && customBots.length) {
-      bots.loadConfig(customBots);
-    } else if (resetBots) {
-      bots.clearPatchedConfigs();
-      bots.loadDefaultBots();
-    } else if (bots.bots.size === 0) {
-      if (bots.configs.length) {
-        bots.reloadStoredConfigs();
-      } else {
-        bots.loadDefaultBots();
-      }
+  socket.on("cancelOrders", (assetId) => {
+    const player = players.get(socket.id);
+    if (!player) return;
+    if (assetId) {
+      player.orders = player.orders.filter((order) => order.assetId !== assetId);
+    } else {
+      player.orders = [];
     }
-    bots.tick(engine.getSnapshot());
-
-    gameActive = true;
-    paused = false;
-
-    const snapshot = engine.getSnapshot();
-    io.emit("gameStarted", {
-      fairValue: snapshot.fairValue,
-      productName: snapshot.productName,
-      paused,
-      price: snapshot.price,
-      priceMode: snapshot.priceMode,
-    });
-    io.emit("priceMode", snapshot.priceMode);
-    broadcastPriceSnapshot();
-    broadcastBook();
-    broadcastDarkBook();
-    io.emit("phase", "running");
-
-    for (const [, sock] of io.sockets.sockets) {
-      emitYou(sock);
-      emitOrders(sock);
-    }
-
-    if (newsSeries.active) {
-      scheduleNextNews();
-    }
-
-    restartTickTimer();
+    publishPortfolio(player);
   });
 
-  // Pause / Resume (toggle)
-  socket.on("pauseGame", () => {
-    if (!gameActive) return;
-    paused = !paused;
-    io.emit("paused", paused);
-    if (paused) {
-      clearNewsSeriesTimer();
-    } else if (newsSeries.active) {
-      scheduleNextNews();
-    }
+  socket.on("closePosition", (assetId) => {
+    const player = players.get(socket.id);
+    if (!player) return;
+    const asset = assets.find((item) => item.id === assetId);
+    if (!asset) return;
+    const positionData = ensurePosition(player, assetId);
+    if (positionData.position === 0) return;
+    const side = positionData.position > 0 ? "sell" : "buy";
+    const qty = Math.abs(positionData.position);
+    fillOrder(player, { assetId, side, qty, price: asset.price }, asset);
   });
 
-  // Restart -> clears everything and returns to lobby; everyone re-enters name
-  socket.on("restartGame", () => {
-    clearInterval(tickTimer);
-    tickTimer = null;
-    gameActive = false;
-    paused = false;
-
-    engine.reset();
-    bots.clear();
-    io.emit("gameReset");          // clients go back to join screen
-    io.emit("playerList", []);     // empty roster
-    io.emit("phase", "lobby");
-    io.emit("priceMode", engine.priceMode);
-    broadcastBook();
-    broadcastPriceSnapshot();
-    broadcastDarkBook();
-    clearNewsSeriesTimer();
+  socket.on("disconnect", () => {
+    players.delete(socket.id);
   });
-
-  // Admin-only news with sentiment/intensity
-  socket.on("pushNews", ({ text, delta, sentiment, intensity, halfLifeSec } = {}) => {
-    if (!gameActive) return;
-    applyNewsPayload({ text, delta, sentiment, intensity, halfLifeSec });
-  });
-
-  socket.on("startNewsSeries", ({ entries, minDelaySec, maxDelaySec } = {}, ack) => {
-    if (!Array.isArray(entries) || !entries.length) {
-      ack?.({ ok: false, message: "No series entries provided." });
-      return;
-    }
-    const normalized = entries.map((entry) => normalizeNewsEntry(entry));
-    const minDelay = Number(minDelaySec);
-    const maxDelay = Number(maxDelaySec);
-    if (!Number.isFinite(minDelay) || !Number.isFinite(maxDelay) || minDelay <= 0 || maxDelay <= 0) {
-      ack?.({ ok: false, message: "Invalid delay settings." });
-      return;
-    }
-    newsSeries.entries = normalized;
-    newsSeries.index = 0;
-    newsSeries.minDelayMs = minDelay * 1000;
-    newsSeries.maxDelayMs = maxDelay * 1000;
-    newsSeries.active = true;
-    if (gameActive && !paused) {
-      scheduleNextNews();
-    }
-    ack?.({ ok: true, message: "Series armed for random drops." });
-  });
-
-  socket.on("stopNewsSeries", (_payload, ack) => {
-    newsSeries.active = false;
-    clearNewsSeriesTimer();
-    ack?.({ ok: true, message: "Series stopped." });
-  });
-
-  socket.on("setPriceMode", ({ mode } = {}) => {
-    const updated = engine.setPriceMode(mode);
-    io.emit("priceMode", updated);
-    broadcastPriceSnapshot();
-    broadcastBook();
-  });
-
 });
 
-/* ---------- Start ---------- */
+startTicking();
+
 server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`Admin UI: /admin.html`);
+  console.log(`Server running on ${PORT}`);
 });

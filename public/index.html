@@ -17,12 +17,6 @@
         <div class="hud-line">
           <span id="connectionBadge" class="pill hud-pill" data-state="connecting">Connecting…</span>
           <span id="phaseBadge" class="pill hud-pill">Phase: Lobby</span>
-          <span id="pauseBadge" class="pill hud-pill" data-paused="false">Live</span>
-          <button id="introOpenBtn" type="button" class="chip-btn hud-chip">Quick Intro</button>
-        </div>
-        <div class="hud-news">
-          <span class="label">Last News</span>
-          <div id="lastNewsHeadline" class="hud-news-text">Waiting for news…</div>
         </div>
       </div>
       <div class="brand-actions">
@@ -32,7 +26,7 @@
             <span id="posLbl" class="metric-value">0</span>
           </div>
           <div class="metric">
-            <span class="metric-label">PnL <span class="info-hint inline" data-tooltip="Realized + mark-to-market PnL based on fills and the last trade price.">?</span></span>
+            <span class="metric-label">PnL</span>
             <span id="pnlLbl" class="metric-value">0.00</span>
           </div>
         </div>
@@ -41,41 +35,6 @@
     </div>
   </header>
 
-  <div id="introModal" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-surface">
-      <div class="modal-header">
-        <h2>Welcome to the KI Live Trading Sim</h2>
-        <button id="introCloseBtn" class="chip-btn" type="button">Close</button>
-      </div>
-      <p class="muted">Quick primer to get you trading fast:</p>
-      <ul class="intro-list">
-        <li>Use the <strong>Order Entry</strong> ticket for market or limit orders; cancel all when you need a fresh slate.</li>
-        <li>The <strong>Depth of Market</strong> highlights best bid/ask and your live resting orders.</li>
-        <li>Watch <strong>PnL</strong> and average cost in the HUD; fills plot as arrows on the chart.</li>
-        <li>News headlines move the fair value—stay alert for color changes in the ticker.</li>
-      </ul>
-      <div class="modal-actions">
-        <button id="introDismissBtn" type="button">Let’s trade</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="closeAllModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="closeAllTitle">
-    <div class="modal-surface">
-      <div class="modal-header">
-        <h2 id="closeAllTitle">Close All Positions?</h2>
-        <button id="closeAllDismissBtn" class="chip-btn" type="button">Cancel</button>
-      </div>
-      <p class="muted">
-        Close All will cancel any resting orders and immediately exit your entire position at the current market price.
-        Market exits can move the price, so consider using small market or limit orders, iceberg orders, or bot orders
-        to reduce market impact.
-      </p>
-      <div class="modal-actions">
-        <button id="closeAllConfirmBtn" type="button" class="close-all">Confirm Close All</button>
-      </div>
-    </div>
-  </div>
 
   <!-- JOIN -->
   <section id="joinView" class="center">
@@ -103,42 +62,22 @@
 
   <!-- GAME -->
   <section id="gameView" class="page hidden">
-    <div id="newsBar" class="news"><span id="newsText">Waiting for news…</span></div>
-
     <div class="game-shell">
       <div class="left-col">
         <div class="chart-row">
-          <div class="panel card side-widget tasks-card">
+          <div class="panel card side-widget assets-card">
             <div class="panel-header">
-              <h3>Tasks</h3>
-              <div class="task-tabs" role="tablist" aria-label="Tasks panel">
-                <button type="button" class="chip-btn active" data-task-tab="tasks" aria-pressed="true">Tasks</button>
-                <button type="button" class="chip-btn" data-task-tab="scoreboard" aria-pressed="false">Scoreboard</button>
-              </div>
+              <h3>Assets</h3>
+              <span class="muted small-text">Select an asset to trade</span>
             </div>
-            <div class="side-widget-body tasks-body">
-              <div class="tasks-view" data-task-view="tasks">
-                <div class="task-role">
-                  <span class="label">Role</span>
-                  <strong id="taskRoleName" class="side-widget-value">—</strong>
-                  <span id="taskRoleOrg" class="muted">—</span>
-                </div>
-                <div id="taskList" class="task-list"></div>
-                <div id="taskEmpty" class="task-empty muted">Waiting for tasks…</div>
-                <div class="task-meta">
-                  <div class="task-meta-row">
-                    <span class="label">Next task</span>
-                    <strong id="taskNextTimer">—</strong>
-                  </div>
-                  <div class="task-meta-row">
-                    <span class="label">Last result</span>
-                    <strong id="taskLastResult">—</strong>
-                  </div>
-                </div>
+            <div class="side-widget-body assets-body">
+              <div class="assets-header">
+                <span>Ticker</span>
+                <span>Price</span>
+                <span>Volume</span>
+                <span>PnL</span>
               </div>
-              <div class="tasks-view hidden" data-task-view="scoreboard">
-                <div id="scoreboard" class="scoreboard"></div>
-              </div>
+              <div id="assetsList" class="assets-list"></div>
             </div>
           </div>
 
@@ -157,27 +96,13 @@
         </div>
 
         <div class="lower-panels">
-          <div class="panel card chat-card">
-            <div class="panel-header">
-              <h3>Floor Chat</h3>
-            </div>
-            <div id="chatLog" class="chat-log"></div>
-            <form id="chatForm" class="chat-form">
-              <input id="chatInput" placeholder="Say something…" autocomplete="off" />
-              <button type="submit">Send</button>
-            </form>
-          </div>
-
           <div class="panel card trade-card">
             <div class="panel-header trade-header">
-            <h3>Order Entry <span class="info-hint" data-tooltip="Submit market or limit orders. Use Cancel All to clear resting bids/asks.">?</span></h3>
+              <h3>Order Entry <span id="orderAssetLabel" class="order-asset-label">—</span></h3>
             <div class="order-type-toggle">
               <span class="order-type-label">Order Type</span>
               <label><input type="radio" name="orderType" value="market" checked /> Market</label>
               <label><input type="radio" name="orderType" value="limit" /> Limit</label>
-              <label><input type="radio" name="orderType" value="iceberg" /> Iceberg</label>
-              <label><input type="radio" name="orderType" value="algo" /> Bot</label>
-              <label><input type="radio" name="orderType" value="dark" /> Dark Pool</label>
             </div>
             </div>
             <form id="tradeForm" class="trade-form">
@@ -188,10 +113,6 @@
               <div class="form-row form-row-limit hidden" id="limitPriceRow">
                 <label for="priceInput">Limit Price</label>
                 <input id="priceInput" type="number" step="0.25" inputmode="decimal" placeholder="Price" />
-              </div>
-              <div class="form-row form-row-algo hidden" id="aggressivenessRow">
-                <label for="aggressivenessInput">Aggressiveness (%)</label>
-                <input id="aggressivenessInput" type="number" step="1" min="0" max="100" value="50" />
               </div>
               <div class="open-orders">
                 <ul id="openOrders" class="orders-list"></ul>
@@ -205,32 +126,6 @@
               </div>
             </form>
           </div>
-        </div>
-      </div>
-
-      <div class="dom-col">
-        <div class="panel card book-card dom-card">
-          <div class="panel-header">
-            <h3>Depth of Market <span class="info-hint" data-tooltip="See live bids/asks. Best levels glow; your resting orders are marked." aria-label="Depth of Market help">?</span></h3>
-            <div class="panel-tools book-tools">
-              <button id="bookScrollToggle" type="button" class="chip-btn">Auto Scroll: On</button>
-              <span id="bookSpread">Spread: —</span>
-              <span id="bookModeBadge" class="pill pill-mode">—</span>
-            </div>
-          </div>
-          <div class="book-switch" role="tablist" aria-label="Book view">
-            <button type="button" class="book-tab active" data-view="dom" aria-pressed="true">DOM</button>
-            <button type="button" class="book-tab" data-view="dark" aria-pressed="false">Dark Pool</button>
-            <button type="button" class="book-tab" data-view="orders" aria-pressed="false">My Orders</button>
-          </div>
-          <div class="dom-header" aria-hidden="true">
-            <span>Sell Vol</span>
-            <span>Price</span>
-            <span>Buy Vol</span>
-          </div>
-          <div class="orderbook" id="bookBody"></div>
-          <div class="orderbook hidden" id="darkBookBody"></div>
-          <div class="orderbook hidden" id="myOrdersBookBody"></div>
         </div>
       </div>
     </div>
