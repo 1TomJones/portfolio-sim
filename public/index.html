@@ -22,11 +22,19 @@
       <div class="brand-actions">
         <div class="brand-metrics">
           <div class="metric">
-            <span class="metric-label">Position</span>
+            <span class="metric-label">Position Value</span>
             <span id="posLbl" class="metric-value">0</span>
           </div>
           <div class="metric">
-            <span class="metric-label">PnL</span>
+            <span class="metric-label">Available Cash</span>
+            <span id="cashLbl" class="metric-value">0</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Open PnL</span>
+            <span id="openPnlLbl" class="metric-value">0.00</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Total PnL</span>
             <span id="pnlLbl" class="metric-value">0.00</span>
           </div>
         </div>
@@ -64,7 +72,7 @@
   <section id="gameView" class="page hidden">
     <div class="game-shell">
       <div class="left-col">
-        <div class="chart-row">
+        <div class="market-layout">
           <div class="panel card side-widget assets-card">
             <div class="panel-header">
               <h3>Assets</h3>
@@ -74,46 +82,46 @@
               <div class="assets-header">
                 <span>Ticker</span>
                 <span>Price</span>
-                <span>Volume</span>
+                <span>Position</span>
                 <span>PnL</span>
               </div>
               <div id="assetsList" class="assets-list"></div>
             </div>
           </div>
 
-          <div class="panel card chart-card">
-            <div class="panel-header">
-              <h3>Price Chart</h3>
-              <div class="panel-tools">
-                <span class="mode-label">Candlesticks</span>
-                <span id="chartModeBadge" class="pill pill-mode">—</span>
+          <div class="market-main">
+            <div class="panel card chart-card">
+              <div class="panel-header">
+                <h3>Price Chart</h3>
+                <div class="panel-tools">
+                  <span class="mode-label">Candlesticks</span>
+                  <span id="chartModeBadge" class="pill pill-mode">—</span>
+                </div>
+              </div>
+              <div class="chart-wrap">
+                <div id="chart" class="chart-surface"></div>
               </div>
             </div>
-            <div class="chart-wrap">
-              <div id="chart" class="chart-surface"></div>
-            </div>
-          </div>
-        </div>
 
-        <div class="lower-panels">
-          <div class="panel card trade-card">
-            <div class="panel-header trade-header">
-              <h3>Order Entry <span id="orderAssetLabel" class="order-asset-label">—</span></h3>
+            <div class="panel card trade-card">
+              <div class="panel-header trade-header">
+                <h3>Order Entry <span id="orderAssetLabel" class="order-asset-label">—</span></h3>
+              </div>
+              <form id="tradeForm" class="trade-form">
+                <div class="form-row form-row-qty">
+                  <label for="quantityInput">Volume</label>
+                  <input id="quantityInput" type="number" step="1" min="1" value="1" />
+                </div>
+                <div class="open-orders">
+                  <ul id="openOrders" class="orders-list"></ul>
+                </div>
+                <div id="tradeStatus" class="trade-status muted"></div>
+                <div class="form-actions">
+                  <button type="button" id="sellBtn" class="sell">Sell</button>
+                  <button type="button" id="buyBtn" class="buy">Buy</button>
+                </div>
+              </form>
             </div>
-            <form id="tradeForm" class="trade-form">
-              <div class="form-row form-row-qty">
-                <label for="quantityInput">Volume</label>
-                <input id="quantityInput" type="number" step="1" min="1" value="1" />
-              </div>
-              <div class="open-orders">
-                <ul id="openOrders" class="orders-list"></ul>
-              </div>
-              <div id="tradeStatus" class="trade-status muted"></div>
-              <div class="form-actions">
-                <button type="button" id="sellBtn" class="sell">Sell</button>
-                <button type="button" id="buyBtn" class="buy">Buy</button>
-              </div>
-            </form>
           </div>
         </div>
       </div>

@@ -38,6 +38,7 @@ const ASSET_SYMBOLS = [
 ];
 
 const players = new Map();
+const DEFAULT_CASH = 100000;
 let tickTimer = null;
 
 function randomStep() {
@@ -147,7 +148,7 @@ function publishPortfolio(player) {
   }));
   const socket = io.sockets.sockets.get(player.id);
   if (socket) {
-    socket.emit("portfolio", { positions });
+    socket.emit("portfolio", { positions, cash: player.cash });
     socket.emit("openOrders", { orders: player.orders });
   }
 }
@@ -155,7 +156,15 @@ function publishPortfolio(player) {
 function fillOrder(player, order, asset) {
   const positionData = ensurePosition(player, order.assetId);
   const qtySigned = order.side === "buy" ? order.qty : -order.qty;
+  const prevAbs = Math.abs(positionData.position);
   applyFillToPosition(positionData, qtySigned, order.price);
+  const nextAbs = Math.abs(positionData.position);
+  const absDelta = nextAbs - prevAbs;
+  if (absDelta > 0) {
+    player.cash -= absDelta * order.price;
+  } else if (absDelta < 0) {
+    player.cash += Math.abs(absDelta) * order.price;
+  }
   const socket = io.sockets.sockets.get(player.id);
   if (socket) {
     socket.emit("execution", {
@@ -272,6 +281,7 @@ io.on("connection", (socket) => {
       name: nm,
       positions: {},
       orders: [],
+      cash: DEFAULT_CASH,
     });
     ack?.({ ok: true, phase: "running", assets: initialAssetPayload(), tickMs: TICK_MS });
     publishPortfolio(players.get(socket.id));
