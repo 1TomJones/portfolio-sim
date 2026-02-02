@@ -10,6 +10,8 @@ const joinMsg = document.getElementById("joinMsg");
 const connectionBadge = document.getElementById("connectionBadge");
 const phaseBadge = document.getElementById("phaseBadge");
 const posLbl = document.getElementById("posLbl");
+const cashLbl = document.getElementById("cashLbl");
+const openPnlLbl = document.getElementById("openPnlLbl");
 const pnlLbl = document.getElementById("pnlLbl");
 const assetsList = document.getElementById("assetsList");
 const orderAssetLabel = document.getElementById("orderAssetLabel");
@@ -31,6 +33,7 @@ let assetMap = new Map();
 let selectedAssetId = null;
 let positions = new Map();
 let openOrders = [];
+let availableCash = 100000;
 
 function show(node) {
   if (node) node.classList.remove("hidden");
@@ -45,10 +48,21 @@ function formatNumber(value, digits = 2) {
   return Number(value).toFixed(digits);
 }
 
+function formatCurrency(value) {
+  if (!Number.isFinite(value)) return "—";
+  return `$${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 function formatSigned(value) {
   if (!Number.isFinite(value)) return "—";
   const sign = value > 0 ? "+" : value < 0 ? "" : "";
   return `${sign}${value.toFixed(2)}`;
+}
+
+function formatSignedCurrency(value) {
+  if (!Number.isFinite(value)) return "—";
+  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+  return `${sign}${formatCurrency(Math.abs(value))}`;
 }
 
 function getPositionData(assetId) {
@@ -58,20 +72,35 @@ function getPositionData(assetId) {
 function pnlForAsset(asset) {
   const posData = getPositionData(asset.id);
   const unrealized = posData.position ? (asset.price - posData.avgCost) * posData.position : 0;
-  return (posData.realizedPnl || 0) + unrealized;
+  const realized = posData.realizedPnl || 0;
+  return { total: realized + unrealized, unrealized, realized };
 }
 
-function updateTotalPnl() {
-  const total = assets.reduce((sum, asset) => sum + pnlForAsset(asset), 0);
-  pnlLbl.textContent = formatSigned(total);
-  pnlLbl.classList.toggle("positive", total > 0);
-  pnlLbl.classList.toggle("negative", total < 0);
-}
+function updatePortfolioSummary() {
+  let totalPnl = 0;
+  let openPnl = 0;
+  let positionValue = 0;
 
-function updateHeaderForAsset(asset) {
-  if (!asset) return;
-  const posData = getPositionData(asset.id);
-  posLbl.textContent = posData.position.toFixed(0);
+  positions.forEach((posData, assetId) => {
+    const asset = assetMap.get(assetId);
+    const price = asset?.price ?? 0;
+    const unrealized = posData.position ? (price - posData.avgCost) * posData.position : 0;
+    const realized = posData.realizedPnl || 0;
+    totalPnl += realized + unrealized;
+    openPnl += unrealized;
+    positionValue += Math.abs(posData.position) * price;
+  });
+
+  posLbl.textContent = formatCurrency(positionValue);
+  if (cashLbl) cashLbl.textContent = formatCurrency(availableCash);
+  if (openPnlLbl) {
+    openPnlLbl.textContent = formatSignedCurrency(openPnl);
+    openPnlLbl.classList.toggle("positive", openPnl > 0);
+    openPnlLbl.classList.toggle("negative", openPnl < 0);
+  }
+  pnlLbl.textContent = formatSignedCurrency(totalPnl);
+  pnlLbl.classList.toggle("positive", totalPnl > 0);
+  pnlLbl.classList.toggle("negative", totalPnl < 0);
 }
 
 function setTradeStatus(message, tone = "") {
@@ -120,15 +149,15 @@ function updateAssetsListValues() {
     const positionEl = row.querySelector(".asset-position");
     const pnlEl = row.querySelector(".asset-pnl");
     const posData = getPositionData(asset.id);
-    const pnl = pnlForAsset(asset);
+    const pnlData = pnlForAsset(asset);
 
     priceEl.textContent = formatNumber(asset.price, 2);
     positionEl.textContent = posData.position.toFixed(0);
-    pnlEl.textContent = formatSigned(pnl);
-    pnlEl.classList.toggle("positive", pnl > 0);
-    pnlEl.classList.toggle("negative", pnl < 0);
+    pnlEl.textContent = formatSigned(pnlData.total);
+    pnlEl.classList.toggle("positive", pnlData.total > 0);
+    pnlEl.classList.toggle("negative", pnlData.total < 0);
   });
-  updateTotalPnl();
+  updatePortfolioSummary();
 }
 
 function updateAssetSelectionStyles() {
@@ -214,7 +243,6 @@ function selectAsset(assetId) {
   }
   candleSeriesApi.setData(candleData);
   updateAverageLine(asset);
-  updateHeaderForAsset(asset);
   renderOpenOrders();
 }
 
@@ -325,11 +353,10 @@ socket.on("assetTick", (payload) => {
   if (selectedAssetId) {
     const asset = assetMap.get(selectedAssetId);
     if (asset) {
-      updateHeaderForAsset(asset);
       updateAverageLine(asset);
     }
   }
-  updateTotalPnl();
+  updatePortfolioSummary();
 });
 
 socket.on("portfolio", (payload) => {
@@ -341,15 +368,17 @@ socket.on("portfolio", (payload) => {
       realizedPnl: item.realizedPnl ?? 0,
     });
   });
+  if (Number.isFinite(payload?.cash)) {
+    availableCash = payload.cash;
+  }
   updateAssetsListValues();
   if (selectedAssetId) {
     const asset = assetMap.get(selectedAssetId);
     if (asset) {
-      updateHeaderForAsset(asset);
       updateAverageLine(asset);
     }
   }
-  updateTotalPnl();
+  updatePortfolioSummary();
 });
 
 socket.on("openOrders", (payload) => {
@@ -403,4 +432,4 @@ document.querySelectorAll("[data-fullscreen]").forEach((btn) => {
   });
 });
 
-updateTotalPnl();
+updatePortfolioSummary();
