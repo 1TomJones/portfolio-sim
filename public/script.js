@@ -17,13 +17,8 @@ const orderAssetLabel = document.getElementById("orderAssetLabel");
 const buyBtn = document.getElementById("buyBtn");
 const sellBtn = document.getElementById("sellBtn");
 const quantityInput = document.getElementById("quantityInput");
-const priceInput = document.getElementById("priceInput");
-const limitPriceRow = document.getElementById("limitPriceRow");
-const cancelAllBtn = document.getElementById("cancelAllBtn");
-const closeAllBtn = document.getElementById("closeAllBtn");
 const tradeStatus = document.getElementById("tradeStatus");
 const openOrdersList = document.getElementById("openOrders");
-const orderTypeRadios = Array.from(document.querySelectorAll('input[name="orderType"]'));
 
 const chartContainer = document.getElementById("chart");
 let chartApi = null;
@@ -57,23 +52,26 @@ function formatSigned(value) {
 }
 
 function getPositionData(assetId) {
-  return positions.get(assetId) || { position: 0, avgCost: 0 };
+  return positions.get(assetId) || { position: 0, avgCost: 0, realizedPnl: 0 };
 }
 
 function pnlForAsset(asset) {
   const posData = getPositionData(asset.id);
-  if (!posData.position) return 0;
-  return (asset.price - posData.avgCost) * posData.position;
+  const unrealized = posData.position ? (asset.price - posData.avgCost) * posData.position : 0;
+  return (posData.realizedPnl || 0) + unrealized;
+}
+
+function updateTotalPnl() {
+  const total = assets.reduce((sum, asset) => sum + pnlForAsset(asset), 0);
+  pnlLbl.textContent = formatSigned(total);
+  pnlLbl.classList.toggle("positive", total > 0);
+  pnlLbl.classList.toggle("negative", total < 0);
 }
 
 function updateHeaderForAsset(asset) {
   if (!asset) return;
   const posData = getPositionData(asset.id);
-  const pnl = pnlForAsset(asset);
   posLbl.textContent = posData.position.toFixed(0);
-  pnlLbl.textContent = formatSigned(pnl);
-  pnlLbl.classList.toggle("positive", pnl > 0);
-  pnlLbl.classList.toggle("negative", pnl < 0);
 }
 
 function setTradeStatus(message, tone = "") {
@@ -130,6 +128,7 @@ function updateAssetsListValues() {
     pnlEl.classList.toggle("positive", pnl > 0);
     pnlEl.classList.toggle("negative", pnl < 0);
   });
+  updateTotalPnl();
 }
 
 function updateAssetSelectionStyles() {
@@ -261,22 +260,12 @@ function handleOrder(side) {
     return;
   }
   const qty = Number(quantityInput.value || 0);
-  const orderType = orderTypeRadios.find((input) => input.checked)?.value || "market";
   const payload = {
     assetId: selectedAssetId,
     side,
     qty,
-    type: orderType,
+    type: "market",
   };
-
-  if (orderType === "limit") {
-    const limitPrice = Number(priceInput.value);
-    if (!Number.isFinite(limitPrice)) {
-      setTradeStatus("Enter a valid limit price.", "error");
-      return;
-    }
-    payload.price = limitPrice;
-  }
 
   socket.emit("submitOrder", payload, (res) => {
     if (!res?.ok) {
@@ -285,15 +274,6 @@ function handleOrder(side) {
     }
     setTradeStatus(res.filled ? "Order filled." : "Order placed.", "success");
   });
-}
-
-function updateOrderTypeUI() {
-  const type = orderTypeRadios.find((input) => input.checked)?.value;
-  if (type === "limit") {
-    limitPriceRow.classList.remove("hidden");
-  } else {
-    limitPriceRow.classList.add("hidden");
-  }
 }
 
 socket.on("connect", () => {
@@ -349,12 +329,17 @@ socket.on("assetTick", (payload) => {
       updateAverageLine(asset);
     }
   }
+  updateTotalPnl();
 });
 
 socket.on("portfolio", (payload) => {
   positions = new Map();
   (payload?.positions || []).forEach((item) => {
-    positions.set(item.assetId, { position: item.position, avgCost: item.avgCost });
+    positions.set(item.assetId, {
+      position: item.position,
+      avgCost: item.avgCost,
+      realizedPnl: item.realizedPnl ?? 0,
+    });
   });
   updateAssetsListValues();
   if (selectedAssetId) {
@@ -364,6 +349,7 @@ socket.on("portfolio", (payload) => {
       updateAverageLine(asset);
     }
   }
+  updateTotalPnl();
 });
 
 socket.on("openOrders", (payload) => {
@@ -371,22 +357,8 @@ socket.on("openOrders", (payload) => {
   renderOpenOrders();
 });
 
-orderTypeRadios.forEach((input) => input.addEventListener("change", updateOrderTypeUI));
-
 buyBtn?.addEventListener("click", () => handleOrder("buy"));
 sellBtn?.addEventListener("click", () => handleOrder("sell"));
-
-cancelAllBtn?.addEventListener("click", () => {
-  if (!selectedAssetId) return;
-  socket.emit("cancelOrders", selectedAssetId);
-  setTradeStatus("Cancelled open orders.", "");
-});
-
-closeAllBtn?.addEventListener("click", () => {
-  if (!selectedAssetId) return;
-  socket.emit("closePosition", selectedAssetId);
-  setTradeStatus("Closing position.", "");
-});
 
 joinBtn?.addEventListener("click", () => {
   const name = nameInput.value.trim();
@@ -431,4 +403,4 @@ document.querySelectorAll("[data-fullscreen]").forEach((btn) => {
   });
 });
 
-updateOrderTypeUI();
+updateTotalPnl();

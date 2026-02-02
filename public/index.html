@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>KI - Live Trading Sim</title>
+  <title>Portfolio Sim</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body class="bg">
   <header class="brandbar">
     <div class="brand-left">
       <img src="/assets/Kent_Invest_Logo.png" alt="Kent Invest" class="brandlogo" />
-      <div class="brandtitle">Trader Simulation</div>
+      <div class="brandtitle">Portfolio Sim</div>
     </div>
     <div class="brand-right">
       <div class="hud-cluster">
@@ -99,20 +99,11 @@
           <div class="panel card trade-card">
             <div class="panel-header trade-header">
               <h3>Order Entry <span id="orderAssetLabel" class="order-asset-label">—</span></h3>
-            <div class="order-type-toggle">
-              <span class="order-type-label">Order Type</span>
-              <label><input type="radio" name="orderType" value="market" checked /> Market</label>
-              <label><input type="radio" name="orderType" value="limit" /> Limit</label>
-            </div>
             </div>
             <form id="tradeForm" class="trade-form">
               <div class="form-row form-row-qty">
                 <label for="quantityInput">Volume</label>
                 <input id="quantityInput" type="number" step="1" min="1" value="1" />
-              </div>
-              <div class="form-row form-row-limit hidden" id="limitPriceRow">
-                <label for="priceInput">Limit Price</label>
-                <input id="priceInput" type="number" step="0.25" inputmode="decimal" placeholder="Price" />
               </div>
               <div class="open-orders">
                 <ul id="openOrders" class="orders-list"></ul>
@@ -121,13 +112,33 @@
               <div class="form-actions">
                 <button type="button" id="sellBtn" class="sell">Sell</button>
                 <button type="button" id="buyBtn" class="buy">Buy</button>
-                <button type="button" id="cancelAllBtn" class="secondary cancel">Cancel All</button>
-                <button type="button" id="closeAllBtn" class="close-all">Close All</button>
               </div>
             </form>
           </div>
         </div>
       </div>
+      <aside class="right-col">
+        <div class="panel card news-panel">
+          <div class="panel-header">
+            <h3>News</h3>
+            <span class="muted small-text">Live headlines</span>
+          </div>
+          <div class="news-body">
+            <div class="news-item">
+              <strong>Market feed</strong>
+              <span class="muted">Awaiting the next headline...</span>
+            </div>
+            <div class="news-item">
+              <strong>Trader notes</strong>
+              <span class="muted">Watch this space for event updates.</span>
+            </div>
+            <div class="news-item">
+              <strong>Daily briefing</strong>
+              <span class="muted">No new alerts yet.</span>
+            </div>
+          </div>
+        </div>
+      </aside>
     </div>
   </section>
 

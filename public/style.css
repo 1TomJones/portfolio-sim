@@ -108,8 +108,9 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .dom-line.bid{right:50%;background:linear-gradient(90deg, rgba(46,204,113,0), rgba(46,204,113,0.9), rgba(46,204,113,0.95))}
 .dom-line.ask{left:50%;background:linear-gradient(90deg, rgba(255,107,107,0.95), rgba(255,107,107,0.9), rgba(255,107,107,0))}
 
-.game-shell{flex:1;display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:stretch;min-height:0;height:100%}
+.game-shell{flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,0.32fr);gap:14px;align-items:stretch;min-height:0;height:100%}
 .left-col{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0;height:100%}
+.right-col{display:flex;flex-direction:column;min-width:0;min-height:0;height:100%}
 .chart-row{display:grid;grid-template-columns:minmax(120px,0.35fr) minmax(0,1fr);gap:10px;align-items:stretch;flex:1 1 auto;min-height:0}
 .chart-row .chart-card{min-height:0}
 .side-widget{min-width:0;min-height:0;display:flex;flex-direction:column;gap:10px}
@@ -167,7 +168,7 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .form-row-algo.hidden{display:none}
 .open-orders{grid-column:1 / -1;display:flex;flex-direction:column;gap:6px;flex:1;min-height:0;margin-top:0}
 .trade-status{grid-column:1 / -1;min-height:16px;font-size:0.74rem;margin-bottom:2px}
-.form-actions{grid-column:1 / -1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:auto}
+.form-actions{grid-column:1 / -1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:auto}
 .form-actions button{width:100%}
 .form-actions .cancel{display:flex;align-items:center;justify-content:center;white-space:nowrap}
 .close-all{background:rgba(255,193,7,0.18);border-color:#ffc107;color:#ffe9b3}
@@ -258,6 +259,9 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .hud-pill[data-paused="true"]{background:rgba(255,92,92,0.16);border-color:rgba(255,92,92,0.5)}
 .hud-pill[data-phase="running"]{background:rgba(46,204,113,0.12);border-color:rgba(46,204,113,0.45);color:#c8f5dd}
 .hud-news{display:flex;flex-direction:column;gap:4px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px 10px;min-width:260px;max-width:460px}
+.news-panel{display:flex;flex-direction:column;gap:12px;flex:1;min-height:0}
+.news-body{display:flex;flex-direction:column;gap:12px;flex:1;overflow-y:auto}
+.news-item{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);font-size:0.85rem}
 .hud-news-text{font-weight:700;letter-spacing:0.02em;color:#d5e7ff}
 .brand-actions{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
 .brand-metrics{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap}

@@ -89,13 +89,16 @@ const assets = ASSET_SYMBOLS.map((symbol, index) => createAsset(symbol, index));
 
 function ensurePosition(player, assetId) {
   if (!player.positions[assetId]) {
-    player.positions[assetId] = { position: 0, avgCost: 0 };
+    player.positions[assetId] = { position: 0, avgCost: 0, realizedPnl: 0 };
   }
   return player.positions[assetId];
 }
 
 function applyFillToPosition(positionData, qtySigned, price) {
   const { position, avgCost } = positionData;
+  if (!Number.isFinite(positionData.realizedPnl)) {
+    positionData.realizedPnl = 0;
+  }
   const newPos = position + qtySigned;
 
   if (position === 0) {
@@ -109,6 +112,10 @@ function applyFillToPosition(positionData, qtySigned, price) {
     positionData.avgCost = newPos === 0 ? 0 : (position * avgCost + qtySigned * price) / newPos;
     return;
   }
+
+  const closingQty = Math.min(Math.abs(position), Math.abs(qtySigned));
+  const realizedChange = (price - avgCost) * closingQty * Math.sign(position);
+  positionData.realizedPnl += realizedChange;
 
   if (newPos === 0) {
     positionData.position = 0;
@@ -125,11 +132,18 @@ function applyFillToPosition(positionData, qtySigned, price) {
   positionData.avgCost = price;
 }
 
+function computePositionPnl(positionData, assetPrice) {
+  const unrealized = positionData.position ? (assetPrice - positionData.avgCost) * positionData.position : 0;
+  return positionData.realizedPnl + unrealized;
+}
+
 function publishPortfolio(player) {
   const positions = Object.entries(player.positions).map(([assetId, data]) => ({
     assetId,
     position: data.position,
     avgCost: data.avgCost,
+    realizedPnl: data.realizedPnl ?? 0,
+    pnl: computePositionPnl(data, assets.find((asset) => asset.id === assetId)?.price ?? 0),
   }));
   const socket = io.sockets.sockets.get(player.id);
   if (socket) {
