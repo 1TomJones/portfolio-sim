@@ -104,6 +104,7 @@ function updatePortfolioSummary() {
 }
 
 function setTradeStatus(message, tone = "") {
+  if (!tradeStatus) return;
   tradeStatus.textContent = message;
   tradeStatus.dataset.tone = tone;
 }
@@ -257,6 +258,7 @@ function updateChartForAsset(asset) {
 }
 
 function renderOpenOrders() {
+  if (!openOrdersList) return;
   openOrdersList.innerHTML = "";
   const assetOrders = openOrders.filter((order) => order.assetId === selectedAssetId);
   if (!assetOrders.length) {
