@@ -341,3 +341,5 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .result-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .button-link{display:inline-flex;align-items:center;justify-content:center;padding:9px 14px;border-radius:3px;border:1px solid var(--grid);background:#101a2e;color:var(--text);text-decoration:none}
 .button-link:hover{filter:brightness(1.08)}
+
+.button-link.disabled,.button-link[aria-disabled="true"]{opacity:.6;cursor:not-allowed;pointer-events:auto}

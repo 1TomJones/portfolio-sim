@@ -21,7 +21,7 @@ app.get("/healthz", (_req, res) => res.send("ok"));
 app.get("/app-config.js", (_req, res) => {
   const config = {
     VITE_BACKEND_URL: process.env.VITE_BACKEND_URL || "",
-    VITE_MINT_SITE_URL: process.env.VITE_MINT_SITE_URL || "",
+    VITE_MINT_URL: process.env.VITE_MINT_URL || process.env.VITE_MINT_SITE_URL || "",
     NODE_ENV: process.env.NODE_ENV || "development",
   };
   res.type("application/javascript");
