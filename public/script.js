@@ -2,7 +2,7 @@ const socket = io({ transports: ["websocket", "polling"], upgrade: true });
 
 const runId = new URLSearchParams(window.location.search).get("run_id");
 const backendUrl = import.meta.env?.VITE_BACKEND_URL || window.APP_CONFIG?.VITE_BACKEND_URL || "";
-const mintSiteUrl = import.meta.env?.VITE_MINT_SITE_URL || window.APP_CONFIG?.VITE_MINT_SITE_URL || "";
+const mintUrl = import.meta.env?.VITE_MINT_URL || window.APP_CONFIG?.VITE_MINT_URL || "";
 const isDebugSubmissionEnabled =
   import.meta.env?.DEV ||
   window.APP_CONFIG?.NODE_ENV !== "production" ||
@@ -156,13 +156,22 @@ function addResultButton(label, onClick) {
   resultActions?.appendChild(button);
 }
 
-function addResultLink(label, href) {
+function addResultLink(label, href, { disabled = false } = {}) {
   const link = document.createElement("a");
   link.className = "button-link";
-  link.href = href;
-  link.target = "_blank";
-  link.rel = "noreferrer";
   link.textContent = label;
+
+  if (disabled || !href) {
+    link.href = "#";
+    link.setAttribute("aria-disabled", "true");
+    link.classList.add("disabled");
+    link.addEventListener("click", (event) => event.preventDefault());
+  } else {
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+  }
+
   resultActions?.appendChild(link);
 }
 
@@ -365,21 +374,25 @@ function handleOrder(side) {
 }
 
 function buildSubmissionPayload({ useSample = false } = {}) {
-  const score = Number((useSample ? 1234.56 : totalPnlValue).toFixed(2));
   const pnl = Number((useSample ? 789.12 : totalPnlValue).toFixed(2));
+  const score = Number((useSample ? 1234.56 : pnl).toFixed(2));
   const winRate = Number((useSample ? 0.67 : totalTrades ? winTrades / totalTrades : 0).toFixed(4));
   const drawdownValue = Number((useSample ? 250.34 : maxDrawdown).toFixed(2));
+  const finalValue = Number((availableCash + totalPnlValue).toFixed(2));
 
   return {
     runId,
     score,
     pnl,
+    sharpe: null,
     max_drawdown: drawdownValue,
     win_rate: winRate,
     extra: {
       cash: availableCash,
-      trades: totalTrades,
-      winningTrades: winTrades,
+      total_pnl: pnl,
+      final_value: finalValue,
+      num_trades: totalTrades,
+      winning_trades: winTrades,
       positions: Array.from(positions.entries()).map(([assetId, data]) => ({
         assetId,
         position: data.position,
@@ -393,8 +406,10 @@ function buildSubmissionPayload({ useSample = false } = {}) {
 }
 
 async function submitResults(payload) {
+  if (hasSubmittedRun) return;
+
   if (!backendUrl) {
-    setResultMessage("Could not submit results. Retry");
+    setResultMessage("Could not submit results: backend URL not configured.");
     clearResultActions();
     addResultButton("Retry", () => {
       if (latestSubmissionPayload) submitResults(latestSubmissionPayload);
@@ -413,23 +428,38 @@ async function submitResults(payload) {
       body: JSON.stringify(payload),
     });
 
+    if (response.status === 409) {
+      hasSubmittedRun = true;
+      if (submitTestBtn) submitTestBtn.disabled = true;
+      setResultMessage("Already submitted.");
+      clearResultActions();
+      addResultLink("View results on Mint", mintUrl ? `${mintUrl}/multiplayer/runs/${runId}` : "", {
+        disabled: !mintUrl,
+      });
+      return;
+    }
+
     if (!response.ok) {
       throw new Error(`submit-failed-${response.status}`);
     }
 
     hasSubmittedRun = true;
-    setResultMessage("Results submitted.");
+    if (submitTestBtn) submitTestBtn.disabled = true;
+    setResultMessage("Results submitted ✅");
     clearResultActions();
-    if (mintSiteUrl) {
-      addResultLink("View results on Mint", `${mintSiteUrl}/multiplayer/runs/${runId}`);
-    } else {
-      const runText = document.createElement("p");
-      runText.className = "muted";
-      runText.textContent = `runId: ${runId}`;
-      resultActions?.appendChild(runText);
-    }
-  } catch (_error) {
-    setResultMessage("Could not submit results. Retry");
+    addResultLink("View results on Mint", mintUrl ? `${mintUrl}/multiplayer/runs/${runId}` : "", {
+      disabled: !mintUrl,
+    });
+    addResultButton("Close", () => {
+      window.close();
+    });
+  } catch (error) {
+    const isCorsIssue = error instanceof TypeError;
+    setResultMessage(
+      isCorsIssue
+        ? "Could not submit results due to a network/CORS issue. Please retry."
+        : "Could not submit results. Retry",
+    );
     clearResultActions();
     addResultButton("Retry", () => {
       if (latestSubmissionPayload) submitResults(latestSubmissionPayload);
@@ -582,7 +612,14 @@ document.querySelectorAll("[data-fullscreen]").forEach((btn) => {
 });
 
 if (mintHomeLink) {
-  mintHomeLink.href = mintSiteUrl || "/";
+  if (mintUrl) {
+    mintHomeLink.href = mintUrl;
+  } else {
+    mintHomeLink.href = "#";
+    mintHomeLink.setAttribute("aria-disabled", "true");
+    mintHomeLink.classList.add("disabled");
+    mintHomeLink.addEventListener("click", (event) => event.preventDefault());
+  }
 }
 
 if (runIdLabel) {
