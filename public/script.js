@@ -1,5 +1,15 @@
 const socket = io({ transports: ["websocket", "polling"], upgrade: true });
 
+const runId = new URLSearchParams(window.location.search).get("run_id");
+const backendUrl = import.meta.env?.VITE_BACKEND_URL || window.APP_CONFIG?.VITE_BACKEND_URL || "";
+const mintSiteUrl = import.meta.env?.VITE_MINT_SITE_URL || window.APP_CONFIG?.VITE_MINT_SITE_URL || "";
+const isDebugSubmissionEnabled =
+  import.meta.env?.DEV ||
+  window.APP_CONFIG?.NODE_ENV !== "production" ||
+  new URLSearchParams(window.location.search).get("debug_submit") === "1";
+
+const runErrorView = document.getElementById("runErrorView");
+const mintHomeLink = document.getElementById("mintHomeLink");
 const joinView = document.getElementById("joinView");
 const waitView = document.getElementById("waitView");
 const gameView = document.getElementById("gameView");
@@ -15,6 +25,10 @@ const openPnlLbl = document.getElementById("openPnlLbl");
 const pnlLbl = document.getElementById("pnlLbl");
 const assetsList = document.getElementById("assetsList");
 const orderAssetLabel = document.getElementById("orderAssetLabel");
+const resultMessage = document.getElementById("resultMessage");
+const resultActions = document.getElementById("resultActions");
+const runIdLabel = document.getElementById("runIdLabel");
+const submitTestBtn = document.getElementById("submitTestBtn");
 
 const buyBtn = document.getElementById("buyBtn");
 const sellBtn = document.getElementById("sellBtn");
@@ -34,6 +48,13 @@ let selectedAssetId = null;
 let positions = new Map();
 let openOrders = [];
 let availableCash = 100000;
+let totalPnlValue = 0;
+let highestEquity = availableCash;
+let maxDrawdown = 0;
+let winTrades = 0;
+let totalTrades = 0;
+let hasSubmittedRun = false;
+let latestSubmissionPayload = null;
 
 function show(node) {
   if (node) node.classList.remove("hidden");
@@ -76,6 +97,12 @@ function pnlForAsset(asset) {
   return { total: realized + unrealized, unrealized, realized };
 }
 
+function refreshDrawdownMetrics(currentEquity) {
+  highestEquity = Math.max(highestEquity, currentEquity);
+  const drawdown = highestEquity - currentEquity;
+  maxDrawdown = Math.max(maxDrawdown, drawdown);
+}
+
 function updatePortfolioSummary() {
   let totalPnl = 0;
   let openPnl = 0;
@@ -90,6 +117,9 @@ function updatePortfolioSummary() {
     openPnl += unrealized;
     positionValue += Math.abs(posData.position) * price;
   });
+
+  totalPnlValue = totalPnl;
+  refreshDrawdownMetrics(availableCash + totalPnlValue);
 
   posLbl.textContent = formatCurrency(positionValue);
   if (cashLbl) cashLbl.textContent = formatCurrency(availableCash);
@@ -107,6 +137,33 @@ function setTradeStatus(message, tone = "") {
   if (!tradeStatus) return;
   tradeStatus.textContent = message;
   tradeStatus.dataset.tone = tone;
+}
+
+function setResultMessage(message) {
+  if (resultMessage) resultMessage.textContent = message;
+}
+
+function clearResultActions() {
+  if (resultActions) resultActions.innerHTML = "";
+}
+
+function addResultButton(label, onClick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "secondary";
+  button.textContent = label;
+  button.addEventListener("click", onClick);
+  resultActions?.appendChild(button);
+}
+
+function addResultLink(label, href) {
+  const link = document.createElement("a");
+  link.className = "button-link";
+  link.href = href;
+  link.target = "_blank";
+  link.rel = "noreferrer";
+  link.textContent = label;
+  resultActions?.appendChild(link);
 }
 
 function renderAssetsList() {
@@ -307,6 +364,84 @@ function handleOrder(side) {
   });
 }
 
+function buildSubmissionPayload({ useSample = false } = {}) {
+  const score = Number((useSample ? 1234.56 : totalPnlValue).toFixed(2));
+  const pnl = Number((useSample ? 789.12 : totalPnlValue).toFixed(2));
+  const winRate = Number((useSample ? 0.67 : totalTrades ? winTrades / totalTrades : 0).toFixed(4));
+  const drawdownValue = Number((useSample ? 250.34 : maxDrawdown).toFixed(2));
+
+  return {
+    runId,
+    score,
+    pnl,
+    max_drawdown: drawdownValue,
+    win_rate: winRate,
+    extra: {
+      cash: availableCash,
+      trades: totalTrades,
+      winningTrades: winTrades,
+      positions: Array.from(positions.entries()).map(([assetId, data]) => ({
+        assetId,
+        position: data.position,
+        avgCost: data.avgCost,
+        realizedPnl: data.realizedPnl ?? 0,
+      })),
+      submittedAt: new Date().toISOString(),
+      mode: useSample ? "debug" : "live",
+    },
+  };
+}
+
+async function submitResults(payload) {
+  if (!backendUrl) {
+    setResultMessage("Could not submit results. Retry");
+    clearResultActions();
+    addResultButton("Retry", () => {
+      if (latestSubmissionPayload) submitResults(latestSubmissionPayload);
+    });
+    return;
+  }
+
+  latestSubmissionPayload = payload;
+  setResultMessage("Submitting results…");
+  clearResultActions();
+
+  try {
+    const response = await fetch(`${backendUrl}/api/runs/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`submit-failed-${response.status}`);
+    }
+
+    hasSubmittedRun = true;
+    setResultMessage("Results submitted.");
+    clearResultActions();
+    if (mintSiteUrl) {
+      addResultLink("View results on Mint", `${mintSiteUrl}/multiplayer/runs/${runId}`);
+    } else {
+      const runText = document.createElement("p");
+      runText.className = "muted";
+      runText.textContent = `runId: ${runId}`;
+      resultActions?.appendChild(runText);
+    }
+  } catch (_error) {
+    setResultMessage("Could not submit results. Retry");
+    clearResultActions();
+    addResultButton("Retry", () => {
+      if (latestSubmissionPayload) submitResults(latestSubmissionPayload);
+    });
+  }
+}
+
+function submitLiveResults() {
+  if (!runId || hasSubmittedRun) return;
+  submitResults(buildSubmissionPayload({ useSample: false }));
+}
+
 socket.on("connect", () => {
   if (connectionBadge) {
     connectionBadge.dataset.state = "connected";
@@ -324,6 +459,9 @@ socket.on("disconnect", () => {
 socket.on("phase", (phase) => {
   if (phaseBadge) {
     phaseBadge.textContent = `Phase: ${phase}`;
+  }
+  if (["ended", "finished", "complete"].includes(String(phase).toLowerCase())) {
+    submitLiveResults();
   }
 });
 
@@ -384,6 +522,14 @@ socket.on("portfolio", (payload) => {
   updatePortfolioSummary();
 });
 
+socket.on("execution", (payload) => {
+  const tradePnl = Number(payload?.realizedPnlDelta ?? payload?.pnlDelta ?? 0);
+  totalTrades += 1;
+  if (tradePnl > 0) {
+    winTrades += 1;
+  }
+});
+
 socket.on("openOrders", (payload) => {
   openOrders = payload?.orders || [];
   renderOpenOrders();
@@ -434,5 +580,29 @@ document.querySelectorAll("[data-fullscreen]").forEach((btn) => {
     }
   });
 });
+
+if (mintHomeLink) {
+  mintHomeLink.href = mintSiteUrl || "/";
+}
+
+if (runIdLabel) {
+  runIdLabel.textContent = runId ? `Run: ${runId}` : "Run: missing";
+}
+
+if (!runId) {
+  hide(joinView);
+  hide(waitView);
+  hide(gameView);
+  show(runErrorView);
+} else {
+  setResultMessage("Results will be submitted when the round ends.");
+}
+
+if (submitTestBtn && runId && isDebugSubmissionEnabled) {
+  show(submitTestBtn);
+  submitTestBtn.addEventListener("click", () => {
+    submitResults(buildSubmissionPayload({ useSample: true }));
+  });
+}
 
 updatePortfolioSummary();

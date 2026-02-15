@@ -44,6 +44,17 @@
   </header>
 
 
+
+  <section id="runErrorView" class="center hidden">
+    <div class="card result-card">
+      <h2>Missing run_id. Please launch the sim from Mint.</h2>
+      <p class="muted">This simulation must be opened from a Mint run link.</p>
+      <div class="result-actions">
+        <a id="mintHomeLink" class="button-link" href="#">Back to Mint homepage</a>
+      </div>
+    </div>
+  </section>
+
   <!-- JOIN -->
   <section id="joinView" class="center">
     <div class="card">
@@ -125,6 +136,15 @@
         </div>
       </div>
       <aside class="right-col">
+        <div class="panel card result-panel" id="resultPanel">
+          <div class="panel-header">
+            <h3>Run Submission</h3>
+            <span class="muted small-text" id="runIdLabel">Run: —</span>
+          </div>
+          <p id="resultMessage" class="muted">Results will be submitted when the round ends.</p>
+          <div id="resultActions" class="result-actions"></div>
+          <button id="submitTestBtn" class="secondary hidden" type="button">Submit test results</button>
+        </div>
         <div class="panel card news-panel">
           <div class="panel-header">
             <h3>News</h3>
@@ -150,7 +170,8 @@
   </section>
 
   <script src="/socket.io/socket.io.js"></script>
+  <script src="/app-config.js"></script>
   <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
-  <script src="script.js"></script>
+  <script type="module" src="script.js"></script>
 </body>
 </html>

@@ -18,6 +18,16 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use("/assets", express.static(path.join(__dirname, "public/assets")));
 app.get("/healthz", (_req, res) => res.send("ok"));
 
+app.get("/app-config.js", (_req, res) => {
+  const config = {
+    VITE_BACKEND_URL: process.env.VITE_BACKEND_URL || "",
+    VITE_MINT_SITE_URL: process.env.VITE_MINT_SITE_URL || "",
+    NODE_ENV: process.env.NODE_ENV || "development",
+  };
+  res.type("application/javascript");
+  res.send(`window.APP_CONFIG = ${JSON.stringify(config)};`);
+});
+
 const PORT = process.env.PORT || 10000;
 
 const TICK_MS = 500;
