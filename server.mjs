@@ -36,6 +36,20 @@ const backendUrl = process.env.VITE_BACKEND_URL || "";
 
 const scenariosPath = path.join(__dirname, "scenarios");
 const fallbackScenarioId = process.env.DEFAULT_SCENARIO_ID || "global-macro";
+const metadataScenarios = [
+  {
+    id: "test_2min",
+    name: "Test (2 min)",
+    description: "2 news events, quick run.",
+    duration_minutes: 2,
+  },
+  {
+    id: "macro_15min",
+    name: "Macro Cross-Asset (15 min)",
+    description: "Rates/inflation/oil/tech shocks with correlations.",
+    duration_minutes: 15,
+  },
+];
 
 function safeJsonRead(filePath) {
   try {
@@ -533,6 +547,15 @@ app.get("/meta/scenarios", (_req, res) => {
 
 app.get("/meta/scenarios.json", (_req, res) => {
   res.json(listScenarios());
+});
+
+app.get("/api/metadata", (_req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.json({
+    sim_key: "portfolio_sim",
+    version: "1.0",
+    scenarios: metadataScenarios,
+  });
 });
 
 app.get("/api/events/:code/players", (req, res) => {

@@ -14,10 +14,24 @@
     "version": "1.0.0"
   },
   {
+    "id": "macro_15min",
+    "name": "Macro Cross-Asset (15 min)",
+    "description": "Rates/inflation/oil/tech shocks with correlations.",
+    "duration_seconds": 900,
+    "version": 1
+  },
+  {
     "id": "macro_rotation_15m",
     "name": "Macro Rotation (15 min)",
     "description": "CPI shock, rate repricing, energy spike, then relief rally. Designed for portfolio/risk discipline.",
     "duration_seconds": 900,
+    "version": 1
+  },
+  {
+    "id": "test_2min",
+    "name": "Test (2 min)",
+    "description": "2 news events, quick run.",
+    "duration_seconds": 120,
     "version": 1
   }
 ]

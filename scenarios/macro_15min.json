@@ -1,0 +1,858 @@
+{
+  "id": "macro_15min",
+  "name": "Macro Cross-Asset (15 min)",
+  "description": "Rates/inflation/oil/tech shocks with correlations.",
+  "version": 1,
+  "duration_seconds": 900,
+  "tickMs": 500,
+  "ticksPerCandle": 10,
+  "maxCandles": 120,
+  "meanReversion": 0.12,
+  "baseNoise": 0.0022,
+  "factors": {
+    "globalRisk": {
+      "vol": 0.0013,
+      "decay": 0.96
+    },
+    "rates": {
+      "vol": 0.0011,
+      "decay": 0.97
+    },
+    "inflation": {
+      "vol": 0.001,
+      "decay": 0.95
+    },
+    "energy": {
+      "vol": 0.0018,
+      "decay": 0.95
+    },
+    "usd": {
+      "vol": 0.0009,
+      "decay": 0.96
+    },
+    "growth": {
+      "vol": 0.001,
+      "decay": 0.96
+    },
+    "tech": {
+      "vol": 0.0016,
+      "decay": 0.95
+    },
+    "safeHaven": {
+      "vol": 0.001,
+      "decay": 0.95
+    }
+  },
+  "assets": [
+    {
+      "id": "idx-spx",
+      "symbol": "SPX",
+      "name": "S&P 500",
+      "category": "equities",
+      "group": "indices",
+      "startPrice": 5000,
+      "priceDecimals": 1,
+      "factors": {
+        "globalRisk": 0.95,
+        "rates": -0.3,
+        "inflation": -0.18,
+        "energy": -0.08,
+        "growth": 0.2,
+        "usd": -0.05
+      }
+    },
+    {
+      "id": "idx-ndx",
+      "symbol": "NDX",
+      "name": "Nasdaq 100",
+      "category": "equities",
+      "group": "indices",
+      "startPrice": 17500,
+      "priceDecimals": 1,
+      "factors": {
+        "globalRisk": 1.0,
+        "tech": 0.95,
+        "rates": -0.52,
+        "inflation": -0.2,
+        "growth": 0.25,
+        "usd": -0.08,
+        "energy": -0.05
+      }
+    },
+    {
+      "id": "eq-aapl",
+      "symbol": "AAPL",
+      "name": "Apple",
+      "category": "equities",
+      "group": "stocks",
+      "startPrice": 180,
+      "priceDecimals": 2,
+      "factors": {
+        "globalRisk": 0.85,
+        "tech": 0.88,
+        "rates": -0.38,
+        "inflation": -0.15,
+        "growth": 0.18,
+        "usd": -0.1
+      }
+    },
+    {
+      "id": "eq-nvda",
+      "symbol": "NVDA",
+      "name": "Nvidia",
+      "category": "equities",
+      "group": "stocks",
+      "startPrice": 700,
+      "priceDecimals": 2,
+      "factors": {
+        "globalRisk": 0.95,
+        "tech": 1.3,
+        "rates": -0.58,
+        "inflation": -0.22,
+        "growth": 0.3,
+        "usd": -0.12
+      }
+    },
+    {
+      "id": "eq-xom",
+      "symbol": "XOM",
+      "name": "Exxon",
+      "category": "equities",
+      "group": "stocks",
+      "startPrice": 110,
+      "priceDecimals": 2,
+      "factors": {
+        "globalRisk": 0.45,
+        "energy": 1.05,
+        "inflation": 0.16,
+        "rates": -0.08,
+        "usd": -0.15
+      }
+    },
+    {
+      "id": "eq-jpm",
+      "symbol": "JPM",
+      "name": "JPMorgan",
+      "category": "equities",
+      "group": "stocks",
+      "startPrice": 170,
+      "priceDecimals": 2,
+      "factors": {
+        "globalRisk": 0.62,
+        "rates": 0.42,
+        "growth": 0.14,
+        "inflation": -0.08,
+        "usd": 0.03
+      }
+    },
+    {
+      "id": "eq-tsla",
+      "symbol": "TSLA",
+      "name": "Tesla",
+      "category": "equities",
+      "group": "stocks",
+      "startPrice": 200,
+      "priceDecimals": 2,
+      "factors": {
+        "globalRisk": 0.9,
+        "tech": 0.78,
+        "rates": -0.46,
+        "growth": 0.25,
+        "energy": -0.22,
+        "usd": -0.06
+      }
+    },
+    {
+      "id": "bond-us10y",
+      "symbol": "US10Y",
+      "name": "US 10Y Yield",
+      "category": "bonds",
+      "group": "rates",
+      "startPrice": 4.2,
+      "priceDecimals": 3,
+      "isYield": true,
+      "factors": {
+        "rates": 1.05,
+        "inflation": 0.4,
+        "growth": 0.12,
+        "safeHaven": -0.18
+      }
+    },
+    {
+      "id": "bond-us2y",
+      "symbol": "US2Y",
+      "name": "US 2Y Yield",
+      "category": "bonds",
+      "group": "rates",
+      "startPrice": 4.5,
+      "priceDecimals": 3,
+      "isYield": true,
+      "factors": {
+        "rates": 1.3,
+        "inflation": 0.45,
+        "growth": 0.08,
+        "safeHaven": -0.15
+      }
+    },
+    {
+      "id": "cmd-wti",
+      "symbol": "WTI",
+      "name": "WTI Crude",
+      "category": "commodities",
+      "group": "energy",
+      "startPrice": 75,
+      "priceDecimals": 2,
+      "factors": {
+        "energy": 1.18,
+        "inflation": 0.25,
+        "globalRisk": 0.2,
+        "usd": -0.45
+      }
+    },
+    {
+      "id": "cmd-xau",
+      "symbol": "Gold",
+      "name": "Gold",
+      "category": "commodities",
+      "group": "metals",
+      "startPrice": 2000,
+      "priceDecimals": 1,
+      "factors": {
+        "safeHaven": 0.7,
+        "rates": -0.34,
+        "usd": -0.76,
+        "inflation": 0.1,
+        "globalRisk": -0.12
+      }
+    },
+    {
+      "id": "fx-dxy",
+      "symbol": "DXY",
+      "name": "US Dollar Index",
+      "category": "fx",
+      "group": "dollar",
+      "startPrice": 104,
+      "priceDecimals": 3,
+      "factors": {
+        "usd": 1.15,
+        "rates": 0.28,
+        "globalRisk": 0.18,
+        "growth": -0.08
+      }
+    }
+  ],
+  "correlations": {
+    "SPX": {
+      "NDX": 0.88,
+      "AAPL": 0.74,
+      "NVDA": 0.69,
+      "TSLA": 0.62,
+      "JPM": 0.58,
+      "XOM": 0.35,
+      "US2Y": -0.44,
+      "US10Y": -0.34,
+      "WTI": -0.22,
+      "Gold": -0.2,
+      "DXY": -0.36
+    },
+    "NDX": {
+      "SPX": 0.88,
+      "AAPL": 0.78,
+      "NVDA": 0.82,
+      "TSLA": 0.7,
+      "JPM": 0.41,
+      "XOM": 0.22,
+      "US2Y": -0.57,
+      "US10Y": -0.42,
+      "WTI": -0.28,
+      "Gold": -0.24,
+      "DXY": -0.42
+    },
+    "AAPL": {
+      "NDX": 0.78,
+      "SPX": 0.74,
+      "NVDA": 0.68,
+      "TSLA": 0.56,
+      "US2Y": -0.46,
+      "US10Y": -0.36,
+      "DXY": -0.31
+    },
+    "NVDA": {
+      "NDX": 0.82,
+      "SPX": 0.69,
+      "AAPL": 0.68,
+      "TSLA": 0.59,
+      "US2Y": -0.55,
+      "US10Y": -0.4,
+      "DXY": -0.34
+    },
+    "XOM": {
+      "WTI": 0.77,
+      "SPX": 0.35,
+      "NDX": 0.22,
+      "DXY": -0.18
+    },
+    "JPM": {
+      "SPX": 0.58,
+      "US2Y": 0.36,
+      "US10Y": 0.28,
+      "NDX": 0.41
+    },
+    "TSLA": {
+      "NDX": 0.7,
+      "SPX": 0.62,
+      "WTI": -0.2,
+      "US2Y": -0.47
+    },
+    "US2Y": {
+      "US10Y": 0.82,
+      "NDX": -0.57,
+      "SPX": -0.44,
+      "Gold": -0.37,
+      "DXY": 0.42
+    },
+    "US10Y": {
+      "US2Y": 0.82,
+      "NDX": -0.42,
+      "SPX": -0.34,
+      "Gold": -0.3,
+      "DXY": 0.3
+    },
+    "WTI": {
+      "XOM": 0.77,
+      "SPX": -0.22,
+      "NDX": -0.28,
+      "Gold": 0.18,
+      "DXY": -0.24
+    },
+    "Gold": {
+      "SPX": -0.2,
+      "NDX": -0.24,
+      "US2Y": -0.37,
+      "US10Y": -0.3,
+      "DXY": -0.62
+    },
+    "DXY": {
+      "SPX": -0.36,
+      "NDX": -0.42,
+      "WTI": -0.24,
+      "Gold": -0.62,
+      "US2Y": 0.42
+    }
+  },
+  "news": [
+    {
+      "t": 30,
+      "tick": 60,
+      "timestamp_seconds": 30,
+      "headline": "CPI tops estimates; core services re-accelerate.",
+      "factorShocks": {
+        "inflation": 0.012,
+        "rates": 0.009,
+        "globalRisk": -0.006,
+        "usd": 0.005,
+        "tech": -0.004
+      },
+      "impacts": [
+        {
+          "symbol": "NDX",
+          "fv_pct_delta": -0.022,
+          "decay_seconds": 360
+        },
+        {
+          "symbol": "SPX",
+          "fv_pct_delta": -0.011,
+          "decay_seconds": 320
+        },
+        {
+          "symbol": "US2Y",
+          "fv_pct_delta": 0.018,
+          "decay_seconds": 420
+        },
+        {
+          "symbol": "US10Y",
+          "fv_pct_delta": 0.012,
+          "decay_seconds": 420
+        },
+        {
+          "symbol": "Gold",
+          "fv_pct_delta": -0.009,
+          "decay_seconds": 240
+        },
+        {
+          "symbol": "DXY",
+          "fv_pct_delta": 0.007,
+          "decay_seconds": 360
+        }
+      ]
+    },
+    {
+      "t": 75,
+      "tick": 150,
+      "timestamp_seconds": 75,
+      "headline": "Fed funds futures price one fewer cut this year.",
+      "factorShocks": {
+        "rates": 0.006,
+        "globalRisk": -0.003,
+        "usd": 0.003
+      },
+      "impacts": [
+        {
+          "symbol": "NDX",
+          "fv_pct_delta": -0.009,
+          "decay_seconds": 300
+        },
+        {
+          "symbol": "SPX",
+          "fv_pct_delta": -0.005,
+          "decay_seconds": 260
+        },
+        {
+          "symbol": "US2Y",
+          "fv_pct_delta": 0.01,
+          "decay_seconds": 320
+        },
+        {
+          "symbol": "US10Y",
+          "fv_pct_delta": 0.007,
+          "decay_seconds": 320
+        }
+      ]
+    },
+    {
+      "t": 120,
+      "tick": 240,
+      "timestamp_seconds": 120,
+      "headline": "Fed governor: policy must stay restrictive for longer.",
+      "factorShocks": {
+        "rates": 0.004,
+        "growth": -0.002,
+        "globalRisk": -0.002
+      },
+      "impacts": [
+        {
+          "symbol": "US2Y",
+          "fv_pct_delta": 0.007,
+          "decay_seconds": 260
+        },
+        {
+          "symbol": "US10Y",
+          "fv_pct_delta": 0.004,
+          "decay_seconds": 260
+        },
+        {
+          "symbol": "AAPL",
+          "fv_pct_delta": -0.006,
+          "decay_seconds": 240
+        },
+        {
+          "symbol": "NVDA",
+          "fv_pct_delta": -0.01,
+          "decay_seconds": 260
+        }
+      ]
+    },
+    {
+      "t": 180,
+      "tick": 360,
+      "timestamp_seconds": 180,
+      "headline": "Services inflation remains sticky in regional readings.",
+      "factorShocks": {
+        "inflation": 0.004,
+        "rates": 0.003,
+        "globalRisk": -0.002
+      },
+      "impacts": [
+        {
+          "symbol": "SPX",
+          "fv_pct_delta": -0.004,
+          "decay_seconds": 240
+        },
+        {
+          "symbol": "NDX",
+          "fv_pct_delta": -0.007,
+          "decay_seconds": 260
+        },
+        {
+          "symbol": "DXY",
+          "fv_pct_delta": 0.003,
+          "decay_seconds": 260
+        }
+      ]
+    },
+    {
+      "t": 320,
+      "tick": 640,
+      "timestamp_seconds": 320,
+      "headline": "Shipping disruption raises fears of near-term crude shortages.",
+      "factorShocks": {
+        "energy": 0.014,
+        "inflation": 0.004,
+        "globalRisk": -0.003
+      },
+      "impacts": [
+        {
+          "symbol": "WTI",
+          "fv_pct_delta": 0.031,
+          "decay_seconds": 320
+        },
+        {
+          "symbol": "XOM",
+          "fv_pct_delta": 0.015,
+          "decay_seconds": 320
+        },
+        {
+          "symbol": "SPX",
+          "fv_pct_delta": -0.004,
+          "decay_seconds": 220
+        },
+        {
+          "symbol": "NDX",
+          "fv_pct_delta": -0.005,
+          "decay_seconds": 220
+        }
+      ]
+    },
+    {
+      "t": 360,
+      "tick": 720,
+      "timestamp_seconds": 360,
+      "headline": "OPEC delegate says compliance with output curbs is improving.",
+      "factorShocks": {
+        "energy": 0.012,
+        "inflation": 0.003,
+        "usd": 0.001
+      },
+      "impacts": [
+        {
+          "symbol": "WTI",
+          "fv_pct_delta": 0.027,
+          "decay_seconds": 300
+        },
+        {
+          "symbol": "XOM",
+          "fv_pct_delta": 0.012,
+          "decay_seconds": 300
+        },
+        {
+          "symbol": "US10Y",
+          "fv_pct_delta": 0.004,
+          "decay_seconds": 220
+        }
+      ]
+    },
+    {
+      "t": 410,
+      "tick": 820,
+      "timestamp_seconds": 410,
+      "headline": "Airline and transport stocks slide as jet fuel costs climb.",
+      "factorShocks": {
+        "globalRisk": -0.003,
+        "growth": -0.002
+      },
+      "impacts": [
+        {
+          "symbol": "SPX",
+          "fv_pct_delta": -0.005,
+          "decay_seconds": 220
+        },
+        {
+          "symbol": "TSLA",
+          "fv_pct_delta": -0.007,
+          "decay_seconds": 220
+        },
+        {
+          "symbol": "JPM",
+          "fv_pct_delta": -0.003,
+          "decay_seconds": 200
+        }
+      ]
+    },
+    {
+      "t": 470,
+      "tick": 940,
+      "timestamp_seconds": 470,
+      "headline": "Treasury auction tails; front-end yields edge higher on stagflation worry.",
+      "factorShocks": {
+        "rates": 0.004,
+        "inflation": 0.002,
+        "safeHaven": 0.002
+      },
+      "impacts": [
+        {
+          "symbol": "US2Y",
+          "fv_pct_delta": 0.008,
+          "decay_seconds": 260
+        },
+        {
+          "symbol": "US10Y",
+          "fv_pct_delta": 0.006,
+          "decay_seconds": 260
+        },
+        {
+          "symbol": "Gold",
+          "fv_pct_delta": 0.003,
+          "decay_seconds": 220
+        }
+      ]
+    },
+    {
+      "t": 520,
+      "tick": 1040,
+      "timestamp_seconds": 520,
+      "headline": "Refinery outage extends crude draw expectations.",
+      "factorShocks": {
+        "energy": 0.009,
+        "inflation": 0.002
+      },
+      "impacts": [
+        {
+          "symbol": "WTI",
+          "fv_pct_delta": 0.018,
+          "decay_seconds": 260
+        },
+        {
+          "symbol": "XOM",
+          "fv_pct_delta": 0.01,
+          "decay_seconds": 260
+        },
+        {
+          "symbol": "SPX",
+          "fv_pct_delta": -0.003,
+          "decay_seconds": 200
+        }
+      ]
+    },
+    {
+      "t": 620,
+      "tick": 1240,
+      "timestamp_seconds": 620,
+      "headline": "Payroll revisions point to softer hiring momentum.",
+      "factorShocks": {
+        "growth": -0.01,
+        "rates": -0.01,
+        "globalRisk": 0.004,
+        "safeHaven": 0.005,
+        "usd": -0.004
+      },
+      "impacts": [
+        {
+          "symbol": "US2Y",
+          "fv_pct_delta": -0.016,
+          "decay_seconds": 340
+        },
+        {
+          "symbol": "US10Y",
+          "fv_pct_delta": -0.012,
+          "decay_seconds": 340
+        },
+        {
+          "symbol": "NDX",
+          "fv_pct_delta": 0.017,
+          "decay_seconds": 320
+        },
+        {
+          "symbol": "SPX",
+          "fv_pct_delta": 0.009,
+          "decay_seconds": 320
+        },
+        {
+          "symbol": "Gold",
+          "fv_pct_delta": 0.013,
+          "decay_seconds": 320
+        },
+        {
+          "symbol": "DXY",
+          "fv_pct_delta": -0.01,
+          "decay_seconds": 320
+        }
+      ]
+    },
+    {
+      "t": 670,
+      "tick": 1340,
+      "timestamp_seconds": 670,
+      "headline": "UMich expectations survey slips; terminal-rate bets ease.",
+      "factorShocks": {
+        "rates": -0.006,
+        "usd": -0.003,
+        "globalRisk": 0.003
+      },
+      "impacts": [
+        {
+          "symbol": "NDX",
+          "fv_pct_delta": 0.012,
+          "decay_seconds": 280
+        },
+        {
+          "symbol": "AAPL",
+          "fv_pct_delta": 0.008,
+          "decay_seconds": 280
+        },
+        {
+          "symbol": "NVDA",
+          "fv_pct_delta": 0.013,
+          "decay_seconds": 300
+        },
+        {
+          "symbol": "US2Y",
+          "fv_pct_delta": -0.009,
+          "decay_seconds": 280
+        }
+      ]
+    },
+    {
+      "t": 720,
+      "tick": 1440,
+      "timestamp_seconds": 720,
+      "headline": "Fed official flags downside growth risks if policy stays too tight.",
+      "factorShocks": {
+        "rates": -0.005,
+        "growth": -0.003,
+        "safeHaven": 0.003,
+        "globalRisk": 0.003
+      },
+      "impacts": [
+        {
+          "symbol": "SPX",
+          "fv_pct_delta": 0.006,
+          "decay_seconds": 240
+        },
+        {
+          "symbol": "NDX",
+          "fv_pct_delta": 0.01,
+          "decay_seconds": 260
+        },
+        {
+          "symbol": "US10Y",
+          "fv_pct_delta": -0.007,
+          "decay_seconds": 260
+        },
+        {
+          "symbol": "Gold",
+          "fv_pct_delta": 0.007,
+          "decay_seconds": 240
+        }
+      ]
+    },
+    {
+      "t": 775,
+      "tick": 1550,
+      "timestamp_seconds": 775,
+      "headline": "Large-cap tech issues upbeat capex commentary despite macro noise.",
+      "factorShocks": {
+        "tech": 0.007,
+        "globalRisk": 0.002
+      },
+      "impacts": [
+        {
+          "symbol": "NVDA",
+          "fv_pct_delta": 0.011,
+          "decay_seconds": 240
+        },
+        {
+          "symbol": "AAPL",
+          "fv_pct_delta": 0.007,
+          "decay_seconds": 240
+        },
+        {
+          "symbol": "NDX",
+          "fv_pct_delta": 0.008,
+          "decay_seconds": 240
+        }
+      ]
+    },
+    {
+      "t": 835,
+      "tick": 1670,
+      "timestamp_seconds": 835,
+      "headline": "Dollar retreats as real yields fade; metals catch a bid.",
+      "factorShocks": {
+        "usd": -0.006,
+        "safeHaven": 0.004,
+        "rates": -0.003
+      },
+      "impacts": [
+        {
+          "symbol": "DXY",
+          "fv_pct_delta": -0.01,
+          "decay_seconds": 220
+        },
+        {
+          "symbol": "Gold",
+          "fv_pct_delta": 0.012,
+          "decay_seconds": 220
+        },
+        {
+          "symbol": "SPX",
+          "fv_pct_delta": 0.004,
+          "decay_seconds": 200
+        }
+      ]
+    },
+    {
+      "t": 885,
+      "tick": 1770,
+      "timestamp_seconds": 885,
+      "headline": "Closing tone: yields lower, energy off highs, equities hold relief bounce.",
+      "factorShocks": {
+        "rates": -0.003,
+        "energy": -0.004,
+        "globalRisk": 0.002,
+        "inflation": -0.002
+      },
+      "impacts": [
+        {
+          "symbol": "US2Y",
+          "fv_pct_delta": -0.006,
+          "decay_seconds": 160
+        },
+        {
+          "symbol": "US10Y",
+          "fv_pct_delta": -0.005,
+          "decay_seconds": 160
+        },
+        {
+          "symbol": "WTI",
+          "fv_pct_delta": -0.012,
+          "decay_seconds": 160
+        },
+        {
+          "symbol": "NDX",
+          "fv_pct_delta": 0.006,
+          "decay_seconds": 160
+        },
+        {
+          "symbol": "SPX",
+          "fv_pct_delta": 0.004,
+          "decay_seconds": 160
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "scoring": {
+      "formula": "normalized_return - drawdown_penalty - rule_breach_penalty",
+      "drawdown_penalty": {
+        "threshold_pct": -5,
+        "slope": 1.6,
+        "description": "Penalty accelerates once drawdown exceeds -5%."
+      },
+      "rule_breach_penalty": {
+        "single_asset_weight_over_pct": 35,
+        "single_asset_penalty_per_second": 0.08,
+        "missing_diversification_penalty_per_second": 0.06
+      }
+    },
+    "soft_constraints": {
+      "max_single_asset_weight_pct": 35,
+      "min_asset_classes": 2,
+      "required_class": "equities",
+      "second_class_can_be": [
+        "bonds",
+        "commodities",
+        "fx"
+      ]
+    }
+  }
+}

@@ -1,7 +1,7 @@
 const query = new URLSearchParams(window.location.search);
 const runId = query.get("run_id");
 const eventCode = query.get("event_code") || "";
-const scenarioId = query.get("scenario_id") || "global-macro";
+const scenarioId = query.get("scenario_id") || "";
 
 const socket = io({
   transports: ["websocket", "polling"],
@@ -93,6 +93,7 @@ function showLaunchError(title, detail) {
 }
 
 async function validateScenario() {
+  if (!scenarioId) return null;
   try {
     const response = await fetch(`/scenarios/${encodeURIComponent(scenarioId)}.json`, { cache: "no-store" });
     if (!response.ok) return null;
@@ -609,6 +610,11 @@ if (mintHomeLink) {
 if (runIdLabel) runIdLabel.textContent = runId ? `Run: ${runId}` : "Run: missing";
 
 async function init() {
+  if (!scenarioId) {
+    showLaunchError("Missing scenario_id. Launch from Mint.", "This simulation must be opened from a Mint run link.");
+    return;
+  }
+
   const scenario = await validateScenario();
   if (!scenario) {
     showLaunchError("Scenario not found. Launch from Mint.", "Scenario not found. Launch from Mint.");

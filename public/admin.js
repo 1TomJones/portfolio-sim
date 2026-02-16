@@ -1,7 +1,7 @@
 const query = new URLSearchParams(window.location.search);
-const eventCode = query.get("event_code") || "";
+const eventCode = query.get("event_code") || query.get("event_id") || "";
 const adminToken = query.get("admin_token") || "";
-const scenarioId = query.get("scenario_id") || "global-macro";
+const scenarioId = query.get("scenario_id") || "";
 const backendUrl = import.meta.env?.VITE_BACKEND_URL || window.APP_CONFIG?.VITE_BACKEND_URL || "";
 
 const TAB_ORDER = ["equities", "commodities", "bonds"];
@@ -45,6 +45,13 @@ function setPhase(phase) {
 
 
 async function loadScenarioLabel() {
+  if (!scenarioId) {
+    if (adminScenarioLabel) {
+      adminScenarioLabel.textContent = "Scenario: missing";
+    }
+    return;
+  }
+
   try {
     const response = await fetch(`/scenarios/${encodeURIComponent(scenarioId)}.json`, { cache: "no-store" });
     if (!response.ok) throw new Error("missing");
