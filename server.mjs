@@ -65,6 +65,7 @@ function listScenarios() {
     .filter(Boolean)
     .map((scenario) => ({
       id: scenario.id,
+      scenario_id: scenario.id,
       name: scenario.name || scenario.id || "Unnamed scenario",
       duration_seconds: Number(scenario.duration_seconds || scenario.durationSeconds || 0),
       description: scenario.description || "",
@@ -158,12 +159,50 @@ function createSimulationState(scenarioId) {
     assets: (scenario.assets || []).map((asset) => createAssetState(asset, simCfg)),
     news: [...(scenario.news || [])].sort((a, b) => Number(a.tick || 0) - Number(b.tick || 0)),
     newsCursor: 0,
+    assetImpacts: {},
     tick: 0,
     phase: "running",
     eventCode: null,
     tickTimer: null,
     durationTicks,
   };
+}
+
+function getNewsTick(newsItem) {
+  if (Number.isFinite(Number(newsItem?.tick))) return Number(newsItem.tick);
+  if (Number.isFinite(Number(newsItem?.timestamp_seconds))) return Math.floor(Number(newsItem.timestamp_seconds));
+  if (Number.isFinite(Number(newsItem?.t))) return Math.floor(Number(newsItem.t));
+  return 0;
+}
+
+function registerAssetImpact(assetId, fvPctDelta, decaySeconds) {
+  if (!assetId || !Number.isFinite(Number(fvPctDelta))) return;
+  const decayTicks = Math.max(1, Math.round((Number(decaySeconds || 0) * 1000) / sim.simCfg.tickMs) || 1);
+  if (!sim.assetImpacts[assetId]) sim.assetImpacts[assetId] = [];
+  sim.assetImpacts[assetId].push({
+    fvPctDelta: Number(fvPctDelta),
+    ticksLeft: decayTicks,
+    totalTicks: decayTicks,
+  });
+}
+
+function currentAssetImpactPct(assetId) {
+  const impacts = sim.assetImpacts[assetId] || [];
+  return impacts.reduce((acc, impact) => {
+    const weight = Math.max(0, impact.ticksLeft) / Math.max(1, impact.totalTicks);
+    return acc + impact.fvPctDelta * weight;
+  }, 0);
+}
+
+function decayAssetImpacts() {
+  for (const [assetId, impacts] of Object.entries(sim.assetImpacts)) {
+    sim.assetImpacts[assetId] = impacts
+      .map((impact) => ({ ...impact, ticksLeft: impact.ticksLeft - 1 }))
+      .filter((impact) => impact.ticksLeft > 0);
+    if (!sim.assetImpacts[assetId].length) {
+      delete sim.assetImpacts[assetId];
+    }
+  }
 }
 
 let sim = createSimulationState(fallbackScenarioId);
@@ -298,7 +337,7 @@ function processLimitOrdersForAsset(asset) {
 function applyNewsIfAny() {
   while (sim.newsCursor < sim.news.length) {
     const nextNews = sim.news[sim.newsCursor];
-    if (Number(nextNews.tick) > sim.tick) break;
+    if (getNewsTick(nextNews) > sim.tick) break;
     sim.newsCursor += 1;
 
     const factorShocks = nextNews.factorShocks || {};
@@ -314,6 +353,14 @@ function applyNewsIfAny() {
       const scalar = 1 + Number(pctShock || 0);
       asset.fairValue = quantize(Math.max(0.01, asset.fairValue * scalar), asset.decimals);
       asset.price = quantize(Math.max(0.01, asset.price * scalar), asset.decimals);
+      registerAssetImpact(asset.id, Number(pctShock || 0), Number(nextNews.decay_seconds || 180));
+    }
+
+    for (const impact of nextNews.impacts || []) {
+      const symbol = String(impact.symbol || "").trim();
+      const linkedAsset = sim.assets.find((candidate) => candidate.id === impact.assetId || candidate.symbol === symbol);
+      if (!linkedAsset) continue;
+      registerAssetImpact(linkedAsset.id, Number(impact.fv_pct_delta || 0), Number(impact.decay_seconds || nextNews.decay_seconds || 180));
     }
 
     io.emit("news", {
@@ -341,8 +388,24 @@ function computeFairValue(asset) {
     const level = sim.factors[factorName]?.level || 0;
     return acc + Number(beta) * level;
   }, 0);
-  const target = asset.basePrice * (1 + factorContribution);
+  const impactPct = currentAssetImpactPct(asset.id);
+  const target = asset.basePrice * (1 + factorContribution) * (1 + impactPct);
   return Math.max(0.01, quantize(target, asset.decimals));
+}
+
+function computeDirectionalReturn(asset) {
+  const fv = Math.max(asset.fairValue, 0.01);
+  const price = Math.max(asset.price, 0.01);
+  const distancePct = (Math.abs(price - fv) / fv) * 100;
+  const excessPct = Math.max(0, distancePct - 2);
+  const towardRaw = 0.5 + excessPct / 100;
+  const pToward = Math.max(0.1, Math.min(0.9, towardRaw));
+  const towardDirection = price < fv ? 1 : -1;
+  const moveDirection = Math.random() < pToward ? towardDirection : towardDirection * -1;
+
+  const baselineStep = sim.simCfg.baseNoise * (0.45 + Math.random() * 0.75);
+  const distanceStep = Math.min(0.018, excessPct / 250);
+  return moveDirection * (baselineStep + distanceStep);
 }
 
 function stepTick() {
@@ -353,13 +416,18 @@ function stepTick() {
 
   const updates = [];
   const adminUpdates = [];
+  const commonNoise = (Math.random() - 0.5) * sim.simCfg.baseNoise * 0.8;
+  const categoryNoise = new Map();
 
   for (const asset of sim.assets) {
     asset.fairValue = computeFairValue(asset);
 
-    const meanReversionTerm = sim.simCfg.meanReversion * ((asset.fairValue - asset.price) / Math.max(asset.price, 0.01));
-    const idioNoise = (Math.random() - 0.5) * sim.simCfg.baseNoise * 1.7;
-    const nextReturn = meanReversionTerm + idioNoise;
+    if (!categoryNoise.has(asset.category)) {
+      categoryNoise.set(asset.category, (Math.random() - 0.5) * sim.simCfg.baseNoise * 0.9);
+    }
+    const directionalReturn = computeDirectionalReturn(asset);
+    const idioNoise = (Math.random() - 0.5) * sim.simCfg.baseNoise * 0.5;
+    const nextReturn = directionalReturn + commonNoise + categoryNoise.get(asset.category) + idioNoise;
     asset.price = quantize(Math.max(0.01, asset.price * (1 + nextReturn)), asset.decimals);
 
     if (!asset.currentCandle) {
@@ -408,6 +476,8 @@ function stepTick() {
     updates.push(shared);
     adminUpdates.push({ ...shared, fairValue: asset.fairValue });
   }
+
+  decayAssetImpacts();
 
   io.emit("assetTick", { assets: updates, tick: sim.tick });
 
