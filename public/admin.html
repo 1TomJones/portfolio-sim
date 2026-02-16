@@ -11,19 +11,68 @@
     <div class="admin-brand">
       <img src="/assets/Kent_Invest_Logo.png" class="brandlogo" alt="Kent Invest" />
       <div>
-        <h1>KI – Live Trading Sim Admin</h1>
-        <p class="muted">Admin controls are being rebuilt.</p>
+        <h1>Portfolio Sim Admin</h1>
+        <p class="muted">Event controls + fair value monitoring</p>
       </div>
     </div>
+    <span id="adminPhaseBadge" class="pill hud-pill">Phase: loading</span>
   </header>
 
   <main class="admin-grid">
-    <section class="panel span-2">
-      <div class="panel-header"><h2>Coming Soon</h2></div>
-      <div class="panel-body">
-        <p class="muted">The admin dashboard has been cleared for a full redesign.</p>
+    <section id="authState" class="panel span-3">Validating admin token…</section>
+
+    <section id="adminMain" class="span-3 hidden">
+      <div class="admin-grid">
+        <section class="panel">
+          <div class="panel-header"><h2>Event Controls</h2></div>
+          <div class="panel-body">
+            <div class="control-row">
+              <button id="startBtn">Start</button>
+              <button id="pauseBtn" class="secondary">Pause</button>
+              <button id="resumeBtn" class="secondary">Resume</button>
+              <button id="endBtn" class="danger">End</button>
+            </div>
+            <p id="controlStatus" class="muted">Waiting for admin action.</p>
+          </div>
+        </section>
+
+        <section class="panel span-2">
+          <div class="panel-header"><h2>Players</h2></div>
+          <div class="panel-body">
+            <table>
+              <thead>
+                <tr><th>Name</th><th>Run</th><th>Joined</th><th>Status</th><th>Latest Score</th></tr>
+              </thead>
+              <tbody id="playersTbody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header"><h2>Assets</h2></div>
+          <div id="adminAssetTabs" class="asset-tabs"></div>
+          <div class="assets-header">
+            <span>Ticker</span><span>Price</span><span></span><span>Fair Value</span>
+          </div>
+          <div id="adminAssetsList" class="assets-list"></div>
+        </section>
+
+        <section class="panel span-2">
+          <div class="panel-header">
+            <h2>Asset chart + fair value overlay</h2>
+            <span id="selectedAssetLabel" class="muted">Select an asset</span>
+          </div>
+          <div class="chart-wrap">
+            <div id="adminChart" class="chart-surface"></div>
+          </div>
+        </section>
       </div>
     </section>
   </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/app-config.js"></script>
+  <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+  <script type="module" src="admin.js"></script>
 </body>
 </html>

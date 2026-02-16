@@ -1,0 +1,51 @@
+{
+  "id": "global-macro",
+  "name": "Global Macro Rotation",
+  "tickMs": 500,
+  "ticksPerCandle": 10,
+  "maxCandles": 80,
+  "meanReversion": 0.12,
+  "baseNoise": 0.0018,
+  "factors": {
+    "globalRisk": { "vol": 0.0013, "decay": 0.96 },
+    "usd": { "vol": 0.001, "decay": 0.95 },
+    "rates": { "vol": 0.0009, "decay": 0.97 },
+    "energy": { "vol": 0.0024, "decay": 0.94 },
+    "metals": { "vol": 0.0021, "decay": 0.94 },
+    "tech": { "vol": 0.0022, "decay": 0.94 }
+  },
+  "assets": [
+    { "id": "eq-aapl", "symbol": "AAPL", "name": "Apple", "category": "equities", "group": "stocks", "startPrice": 180, "priceDecimals": 2, "factors": { "globalRisk": 0.7, "tech": 1.0, "rates": -0.35, "usd": -0.2 } },
+    { "id": "eq-msft", "symbol": "MSFT", "name": "Microsoft", "category": "equities", "group": "stocks", "startPrice": 400, "priceDecimals": 2, "factors": { "globalRisk": 0.7, "tech": 0.95, "rates": -0.3, "usd": -0.15 } },
+    { "id": "eq-nvda", "symbol": "NVDA", "name": "Nvidia", "category": "equities", "group": "stocks", "startPrice": 700, "priceDecimals": 2, "factors": { "globalRisk": 0.8, "tech": 1.35, "rates": -0.45, "usd": -0.2 } },
+    { "id": "eq-tsla", "symbol": "TSLA", "name": "Tesla", "category": "equities", "group": "stocks", "startPrice": 200, "priceDecimals": 2, "factors": { "globalRisk": 0.9, "tech": 0.8, "rates": -0.25, "usd": -0.1, "energy": -0.15 } },
+    { "id": "eq-amzn", "symbol": "AMZN", "name": "Amazon", "category": "equities", "group": "stocks", "startPrice": 160, "priceDecimals": 2, "factors": { "globalRisk": 0.75, "tech": 0.7, "rates": -0.2, "usd": -0.15 } },
+    { "id": "eq-goog", "symbol": "GOOG", "name": "Alphabet", "category": "equities", "group": "stocks", "startPrice": 150, "priceDecimals": 2, "factors": { "globalRisk": 0.7, "tech": 0.85, "rates": -0.25, "usd": -0.15 } },
+    { "id": "eq-jpm", "symbol": "JPM", "name": "JPMorgan", "category": "equities", "group": "stocks", "startPrice": 170, "priceDecimals": 2, "factors": { "globalRisk": 0.6, "rates": 0.45, "usd": 0.05 } },
+    { "id": "eq-xom", "symbol": "XOM", "name": "Exxon", "category": "equities", "group": "stocks", "startPrice": 110, "priceDecimals": 2, "factors": { "globalRisk": 0.5, "energy": 0.9, "usd": -0.25 } },
+
+    { "id": "idx-spx", "symbol": "SPX", "name": "S&P 500", "category": "equities", "group": "indices", "startPrice": 5000, "priceDecimals": 1, "factors": { "globalRisk": 0.95, "tech": 0.55, "rates": -0.2 } },
+    { "id": "idx-ukx", "symbol": "UKX", "name": "FTSE 100", "category": "equities", "group": "indices", "startPrice": 7500, "priceDecimals": 1, "factors": { "globalRisk": 0.7, "energy": 0.4, "rates": -0.15, "usd": 0.05 } },
+    { "id": "idx-sx5e", "symbol": "SX5E", "name": "Euro Stoxx 50", "category": "equities", "group": "indices", "startPrice": 5000, "priceDecimals": 1, "factors": { "globalRisk": 0.75, "rates": -0.2, "usd": 0.1 } },
+    { "id": "idx-nky", "symbol": "NKY", "name": "Nikkei 225", "category": "equities", "group": "indices", "startPrice": 38000, "priceDecimals": 0, "factors": { "globalRisk": 0.8, "tech": 0.4, "usd": -0.1 } },
+    { "id": "idx-ndx", "symbol": "NDX", "name": "Nasdaq 100", "category": "equities", "group": "indices", "startPrice": 17500, "priceDecimals": 1, "factors": { "globalRisk": 0.95, "tech": 1.0, "rates": -0.35 } },
+
+    { "id": "cmd-wti", "symbol": "WTI", "name": "WTI Crude", "category": "commodities", "startPrice": 75, "priceDecimals": 2, "factors": { "globalRisk": 0.35, "energy": 1.15, "usd": -0.45 } },
+    { "id": "cmd-brn", "symbol": "BRN", "name": "Brent", "category": "commodities", "startPrice": 80, "priceDecimals": 2, "factors": { "globalRisk": 0.35, "energy": 1.2, "usd": -0.4 } },
+    { "id": "cmd-xau", "symbol": "XAU", "name": "Gold", "category": "commodities", "startPrice": 2000, "priceDecimals": 1, "factors": { "globalRisk": -0.2, "metals": 1.0, "usd": -0.75, "rates": -0.3 } },
+    { "id": "cmd-xag", "symbol": "XAG", "name": "Silver", "category": "commodities", "startPrice": 25, "priceDecimals": 2, "factors": { "globalRisk": -0.1, "metals": 1.25, "usd": -0.65, "rates": -0.2 } },
+    { "id": "cmd-ng", "symbol": "NG", "name": "Natural Gas", "category": "commodities", "startPrice": 2.5, "priceDecimals": 3, "factors": { "energy": 1.35, "usd": -0.25 } },
+    { "id": "cmd-hg", "symbol": "HG", "name": "Copper", "category": "commodities", "startPrice": 4.0, "priceDecimals": 3, "factors": { "globalRisk": 0.45, "metals": 1.1, "usd": -0.45 } },
+
+    { "id": "bond-us10y", "symbol": "US10Y", "name": "US 10Y Yield", "category": "bonds", "startPrice": 4.2, "priceDecimals": 3, "isYield": true, "factors": { "rates": 1.1, "globalRisk": -0.25, "usd": 0.1 } },
+    { "id": "bond-us2y", "symbol": "US2Y", "name": "US 2Y Yield", "category": "bonds", "startPrice": 4.5, "priceDecimals": 3, "isYield": true, "factors": { "rates": 1.35, "globalRisk": -0.2, "usd": 0.12 } },
+    { "id": "bond-uk10y", "symbol": "UK10Y", "name": "UK Gilt 10Y", "category": "bonds", "startPrice": 4.0, "priceDecimals": 3, "isYield": true, "factors": { "rates": 1.0, "globalRisk": -0.2, "usd": 0.05 } },
+    { "id": "bond-de10y", "symbol": "DE10Y", "name": "Bund 10Y", "category": "bonds", "startPrice": 2.4, "priceDecimals": 3, "isYield": true, "factors": { "rates": 0.95, "globalRisk": -0.25, "usd": 0.02 } }
+  ],
+  "news": [
+    { "tick": 20, "headline": "US CPI comes in cooler than expected.", "factorShocks": { "rates": -0.007, "globalRisk": 0.004, "tech": 0.004 } },
+    { "tick": 60, "headline": "OPEC hints at deeper production cuts.", "factorShocks": { "energy": 0.012, "globalRisk": -0.002 } },
+    { "tick": 95, "headline": "Mega-cap earnings beat estimates.", "factorShocks": { "tech": 0.011, "globalRisk": 0.004 } },
+    { "tick": 130, "headline": "Risk-off session after geopolitical escalation.", "factorShocks": { "globalRisk": -0.012, "usd": 0.006, "metals": 0.007, "rates": -0.004 } }
+  ]
+}

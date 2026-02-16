@@ -343,3 +343,12 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .button-link:hover{filter:brightness(1.08)}
 
 .button-link.disabled,.button-link[aria-disabled="true"]{opacity:.6;cursor:not-allowed;pointer-events:auto}
+
+.asset-tabs{display:flex;gap:8px;margin:8px 0 10px}
+.asset-tab{padding:6px 10px;border:1px solid var(--grid);background:#101a2e;border-radius:4px;font-size:.8rem}
+.asset-tab.active{background:#1a2c49;border-color:#3b5c90}
+.asset-subsection{padding:6px 8px;color:var(--muted);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
+
+#adminAssetsList{max-height:520px;overflow:auto}
+#adminChart{height:420px}
+#playersTbody td{font-size:.85rem}

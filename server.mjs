@@ -3,6 +3,7 @@ import http from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -29,145 +30,127 @@ app.get("/app-config.js", (_req, res) => {
 });
 
 const PORT = process.env.PORT || 10000;
-
-const TICK_MS = 500;
-const TICKS_PER_CANDLE = 10;
-const MAX_CANDLES = 50;
-
-const ASSET_SYMBOLS = [
-  "ALPHA",
-  "BRAVO",
-  "CRUX",
-  "DELTA",
-  "ECHO",
-  "FALCON",
-  "GAMMA",
-  "HELIX",
-  "ION",
-  "JUNO",
-];
-
-const players = new Map();
 const DEFAULT_CASH = 100000;
-let tickTimer = null;
+const backendUrl = process.env.VITE_BACKEND_URL || "";
 
-function tickSizeForStartPrice(startPrice) {
-  if (startPrice > 500) return 1;
-  if (startPrice >= 250) return 0.5;
-  if (startPrice >= 100) return 0.25;
-  return 0.1;
-}
+const scenariosPath = path.join(__dirname, "scenarios");
+const fallbackScenarioId = process.env.DEFAULT_SCENARIO_ID || "global-macro";
 
-function snapToTick(value, tickSize) {
-  if (!Number.isFinite(tickSize) || tickSize <= 0) return value;
-  const snapped = Math.round(value / tickSize) * tickSize;
-  return Number(snapped.toFixed(4));
-}
-
-function biasedStep(asset) {
-  const fairValue = asset.fairValue || asset.price;
-  const deviationPct = fairValue ? ((asset.price - fairValue) / fairValue) * 100 : 0;
-  const absDeviation = Math.abs(deviationPct);
-  let bias = 0;
-  if (absDeviation >= 2) {
-    bias = Math.min(0.45, 0.05 + Math.max(0, absDeviation - 2) * 0.02);
+function safeJsonRead(filePath) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    return null;
   }
-  let upProbability = 0.5;
-  if (absDeviation >= 2) {
-    upProbability = deviationPct < 0 ? 0.5 + bias : 0.5 - bias;
-  }
-  return Math.random() < upProbability ? 1 : -1;
 }
 
-function buildInitialCandles(startPrice, tickSize) {
-  let price = startPrice;
+function loadScenario(scenarioId) {
+  const wanted = String(scenarioId || fallbackScenarioId);
+  const exact = path.join(scenariosPath, `${wanted}.json`);
+  if (fs.existsSync(exact)) {
+    return safeJsonRead(exact);
+  }
+  const fallback = path.join(scenariosPath, `${fallbackScenarioId}.json`);
+  return safeJsonRead(fallback);
+}
+
+function quantize(value, decimals = 2) {
+  const p = 10 ** decimals;
+  return Math.round(value * p) / p;
+}
+
+function buildInitialCandles(startPrice, decimals, maxCandles, ticksPerCandle) {
   const candles = [];
-  const startTime = Math.floor(Date.now() / 1000) - MAX_CANDLES * TICKS_PER_CANDLE;
-  for (let i = 0; i < MAX_CANDLES; i += 1) {
-    const time = startTime + i * TICKS_PER_CANDLE;
+  let price = startPrice;
+  const startTime = Math.floor(Date.now() / 1000) - maxCandles * ticksPerCandle;
+  for (let i = 0; i < maxCandles; i += 1) {
+    const time = startTime + i * ticksPerCandle;
     let open = price;
     let high = price;
     let low = price;
-    for (let t = 0; t < TICKS_PER_CANDLE; t += 1) {
-      price = snapToTick(price + (Math.random() < 0.5 ? -1 : 1) * tickSize, tickSize);
+    for (let tick = 0; tick < ticksPerCandle; tick += 1) {
+      const wiggle = (Math.random() - 0.5) * 0.003;
+      price = quantize(Math.max(0.01, price * (1 + wiggle)), decimals);
       high = Math.max(high, price);
       low = Math.min(low, price);
     }
-    const close = price;
-    candles.push({ time, open, high, low, close });
+    candles.push({ time, open, high, low, close: price });
   }
   return { candles, price };
 }
 
-function createAsset(symbol, index) {
-  const seed = 90 + index * 15;
-  const tickSize = tickSizeForStartPrice(seed);
-  const initial = buildInitialCandles(seed, tickSize);
-  const lastTime = initial.candles[initial.candles.length - 1]?.time ?? Math.floor(Date.now() / 1000);
+function createAssetState(assetDef, simCfg) {
+  const decimals = Number.isFinite(assetDef.priceDecimals) ? assetDef.priceDecimals : 2;
+  const initial = buildInitialCandles(assetDef.startPrice, decimals, simCfg.maxCandles, simCfg.ticksPerCandle);
+  const lastCandleTime = initial.candles[initial.candles.length - 1]?.time ?? Math.floor(Date.now() / 1000);
+
   return {
-    id: `asset-${index + 1}`,
-    symbol,
-    price: initial.price,
-    fairValue: seed,
-    tickSize,
+    id: assetDef.id,
+    symbol: assetDef.symbol,
+    name: assetDef.name,
+    category: assetDef.category,
+    group: assetDef.group || null,
+    isYield: Boolean(assetDef.isYield),
+    decimals,
+    basePrice: assetDef.startPrice,
+    factors: assetDef.factors || {},
+    price: quantize(initial.price, decimals),
+    fairValue: quantize(assetDef.startPrice, decimals),
     candles: initial.candles,
     currentCandle: {
-      time: lastTime + TICKS_PER_CANDLE,
+      time: lastCandleTime + simCfg.ticksPerCandle,
       open: initial.price,
       high: initial.price,
       low: initial.price,
       close: initial.price,
     },
     ticksInCandle: 0,
-    nextCandleTime: lastTime + TICKS_PER_CANDLE,
+    nextCandleTime: lastCandleTime + simCfg.ticksPerCandle,
   };
 }
 
-const assets = ASSET_SYMBOLS.map((symbol, index) => createAsset(symbol, index));
+function createSimulationState(scenarioId) {
+  const scenario = loadScenario(scenarioId);
+  if (!scenario) {
+    throw new Error("No scenario found. Expected JSON under /scenarios.");
+  }
+
+  const simCfg = {
+    tickMs: Number(scenario.tickMs || 500),
+    ticksPerCandle: Number(scenario.ticksPerCandle || 10),
+    maxCandles: Number(scenario.maxCandles || 80),
+    meanReversion: Number(scenario.meanReversion || 0.12),
+    baseNoise: Number(scenario.baseNoise || 0.0018),
+  };
+
+  const factors = Object.entries(scenario.factors || {}).reduce((acc, [name, cfg]) => {
+    acc[name] = { level: 0, vol: Number(cfg.vol || 0.001), decay: Number(cfg.decay || 0.95) };
+    return acc;
+  }, {});
+
+  return {
+    scenario,
+    simCfg,
+    factors,
+    assets: (scenario.assets || []).map((asset) => createAssetState(asset, simCfg)),
+    news: [...(scenario.news || [])].sort((a, b) => Number(a.tick || 0) - Number(b.tick || 0)),
+    newsCursor: 0,
+    tick: 0,
+    phase: "running",
+    eventCode: null,
+    tickTimer: null,
+  };
+}
+
+let sim = createSimulationState(fallbackScenarioId);
+const players = new Map();
+const adminSockets = new Set();
 
 function ensurePosition(player, assetId) {
   if (!player.positions[assetId]) {
     player.positions[assetId] = { position: 0, avgCost: 0, realizedPnl: 0 };
   }
   return player.positions[assetId];
-}
-
-function applyFillToPosition(positionData, qtySigned, price) {
-  const { position, avgCost } = positionData;
-  if (!Number.isFinite(positionData.realizedPnl)) {
-    positionData.realizedPnl = 0;
-  }
-  const newPos = position + qtySigned;
-
-  if (position === 0) {
-    positionData.position = newPos;
-    positionData.avgCost = newPos === 0 ? 0 : price;
-    return;
-  }
-
-  if (Math.sign(position) === Math.sign(qtySigned)) {
-    positionData.position = newPos;
-    positionData.avgCost = newPos === 0 ? 0 : (position * avgCost + qtySigned * price) / newPos;
-    return;
-  }
-
-  const closingQty = Math.min(Math.abs(position), Math.abs(qtySigned));
-  const realizedChange = (price - avgCost) * closingQty * Math.sign(position);
-  positionData.realizedPnl += realizedChange;
-
-  if (newPos === 0) {
-    positionData.position = 0;
-    positionData.avgCost = 0;
-    return;
-  }
-
-  if (Math.sign(newPos) === Math.sign(position)) {
-    positionData.position = newPos;
-    return;
-  }
-
-  positionData.position = newPos;
-  positionData.avgCost = price;
 }
 
 function computePositionPnl(positionData, assetPrice) {
@@ -181,7 +164,7 @@ function publishPortfolio(player) {
     position: data.position,
     avgCost: data.avgCost,
     realizedPnl: data.realizedPnl ?? 0,
-    pnl: computePositionPnl(data, assets.find((asset) => asset.id === assetId)?.price ?? 0),
+    pnl: computePositionPnl(data, sim.assets.find((asset) => asset.id === assetId)?.price ?? 0),
   }));
   const socket = io.sockets.sockets.get(player.id);
   if (socket) {
@@ -190,18 +173,46 @@ function publishPortfolio(player) {
   }
 }
 
+function applyFillToPosition(positionData, qtySigned, price) {
+  const { position, avgCost } = positionData;
+  const nextPos = position + qtySigned;
+
+  if (position === 0 || Math.sign(position) === Math.sign(qtySigned)) {
+    positionData.position = nextPos;
+    positionData.avgCost = nextPos === 0 ? 0 : (position * avgCost + qtySigned * price) / nextPos;
+    return 0;
+  }
+
+  const closingQty = Math.min(Math.abs(position), Math.abs(qtySigned));
+  const realizedDelta = (price - avgCost) * closingQty * Math.sign(position);
+  positionData.realizedPnl = (positionData.realizedPnl || 0) + realizedDelta;
+
+  if (nextPos === 0) {
+    positionData.position = 0;
+    positionData.avgCost = 0;
+  } else if (Math.sign(nextPos) === Math.sign(position)) {
+    positionData.position = nextPos;
+  } else {
+    positionData.position = nextPos;
+    positionData.avgCost = price;
+  }
+
+  return realizedDelta;
+}
+
 function fillOrder(player, order, asset) {
   const positionData = ensurePosition(player, order.assetId);
   const qtySigned = order.side === "buy" ? order.qty : -order.qty;
-  const prevAbs = Math.abs(positionData.position);
-  applyFillToPosition(positionData, qtySigned, order.price);
-  const nextAbs = Math.abs(positionData.position);
-  const absDelta = nextAbs - prevAbs;
-  if (absDelta > 0) {
-    player.cash -= absDelta * order.price;
-  } else if (absDelta < 0) {
-    player.cash += Math.abs(absDelta) * order.price;
+  const previousPosition = positionData.position;
+  const realizedPnlDelta = applyFillToPosition(positionData, qtySigned, order.price);
+  const tradedNotional = Math.abs(order.qty) * order.price;
+
+  if (order.side === "buy") {
+    player.cash -= tradedNotional;
+  } else {
+    player.cash += tradedNotional;
   }
+
   const socket = io.sockets.sockets.get(player.id);
   if (socket) {
     socket.emit("execution", {
@@ -209,10 +220,15 @@ function fillOrder(player, order, asset) {
       side: order.side,
       qty: order.qty,
       price: order.price,
+      previousPosition,
+      newPosition: positionData.position,
+      realizedPnlDelta,
       t: Date.now(),
     });
   }
+
   publishPortfolio(player);
+
   asset.lastTrade = {
     price: order.price,
     side: order.side,
@@ -221,11 +237,10 @@ function fillOrder(player, order, asset) {
 }
 
 function processLimitOrdersForAsset(asset) {
-  const filledOrderIds = new Set();
   for (const player of players.values()) {
+    const filledOrderIds = new Set();
     for (const order of player.orders) {
       if (order.assetId !== asset.id || order.type !== "limit") continue;
-      if (filledOrderIds.has(order.id)) continue;
       if (order.side === "buy" && asset.price <= order.price) {
         fillOrder(player, order, asset);
         filledOrderIds.add(order.id);
@@ -241,11 +256,61 @@ function processLimitOrdersForAsset(asset) {
   }
 }
 
+function applyNewsIfAny() {
+  while (sim.newsCursor < sim.news.length) {
+    const nextNews = sim.news[sim.newsCursor];
+    if (Number(nextNews.tick) > sim.tick) break;
+    sim.newsCursor += 1;
+
+    const factorShocks = nextNews.factorShocks || {};
+    for (const [factorName, shock] of Object.entries(factorShocks)) {
+      if (!sim.factors[factorName]) continue;
+      sim.factors[factorName].level += Number(shock || 0);
+    }
+
+    io.emit("news", {
+      tick: sim.tick,
+      headline: nextNews.headline,
+      factorShocks,
+    });
+  }
+}
+
+function evolveFactors() {
+  const commonRisk = (Math.random() - 0.5) * sim.simCfg.baseNoise;
+  for (const [name, factor] of Object.entries(sim.factors)) {
+    const drift = -factor.level * (1 - factor.decay);
+    const idio = (Math.random() - 0.5) * factor.vol;
+    const commonWeight = name === "globalRisk" ? 0.9 : 0.4;
+    factor.level += drift + idio + commonRisk * commonWeight;
+  }
+}
+
+function computeFairValue(asset) {
+  const factorContribution = Object.entries(asset.factors || {}).reduce((acc, [factorName, beta]) => {
+    const level = sim.factors[factorName]?.level || 0;
+    return acc + Number(beta) * level;
+  }, 0);
+  const target = asset.basePrice * (1 + factorContribution);
+  return Math.max(0.01, quantize(target, asset.decimals));
+}
+
 function stepTick() {
+  if (sim.phase !== "running") return;
+  sim.tick += 1;
+  evolveFactors();
+  applyNewsIfAny();
+
   const updates = [];
-  for (const asset of assets) {
-    const direction = biasedStep(asset);
-    asset.price = snapToTick(asset.price + direction * asset.tickSize, asset.tickSize);
+  const adminUpdates = [];
+
+  for (const asset of sim.assets) {
+    asset.fairValue = computeFairValue(asset);
+
+    const meanReversionTerm = sim.simCfg.meanReversion * ((asset.fairValue - asset.price) / Math.max(asset.price, 0.01));
+    const idioNoise = (Math.random() - 0.5) * sim.simCfg.baseNoise * 1.7;
+    const nextReturn = meanReversionTerm + idioNoise;
+    asset.price = quantize(Math.max(0.01, asset.price * (1 + nextReturn)), asset.decimals);
 
     if (!asset.currentCandle) {
       asset.currentCandle = {
@@ -263,65 +328,141 @@ function stepTick() {
     asset.currentCandle.low = Math.min(asset.currentCandle.low, asset.price);
     asset.ticksInCandle += 1;
 
-    let isNewCandle = false;
     let completedCandle = null;
-    if (asset.ticksInCandle >= TICKS_PER_CANDLE) {
+    if (asset.ticksInCandle >= sim.simCfg.ticksPerCandle) {
       completedCandle = asset.currentCandle;
       asset.candles.push(completedCandle);
-      if (asset.candles.length > MAX_CANDLES) {
+      if (asset.candles.length > sim.simCfg.maxCandles) {
         asset.candles.shift();
       }
-      asset.nextCandleTime += TICKS_PER_CANDLE;
+      asset.nextCandleTime += sim.simCfg.ticksPerCandle;
       asset.currentCandle = null;
       asset.ticksInCandle = 0;
-      isNewCandle = true;
     }
 
     processLimitOrdersForAsset(asset);
 
-    updates.push({
+    const shared = {
       id: asset.id,
       symbol: asset.symbol,
+      name: asset.name,
+      category: asset.category,
+      group: asset.group,
+      isYield: asset.isYield,
       price: asset.price,
       candle: asset.currentCandle,
-      isNewCandle,
       completedCandle,
       lastTrade: asset.lastTrade || null,
-    });
+    };
+
+    updates.push(shared);
+    adminUpdates.push({ ...shared, fairValue: asset.fairValue });
   }
 
-  io.emit("assetTick", { assets: updates });
+  io.emit("assetTick", { assets: updates, tick: sim.tick });
+
+  for (const socketId of adminSockets) {
+    const socket = io.sockets.sockets.get(socketId);
+    socket?.emit("adminAssetTick", { assets: adminUpdates, tick: sim.tick });
+  }
 }
 
 function startTicking() {
-  if (tickTimer) clearInterval(tickTimer);
-  tickTimer = setInterval(stepTick, TICK_MS);
+  if (sim.tickTimer) clearInterval(sim.tickTimer);
+  sim.tickTimer = setInterval(stepTick, sim.simCfg.tickMs);
+}
+
+function setPhase(nextPhase) {
+  sim.phase = nextPhase;
+  io.emit("phase", nextPhase);
 }
 
 function initialAssetPayload() {
-  return assets.map((asset) => ({
+  return sim.assets.map((asset) => ({
     id: asset.id,
     symbol: asset.symbol,
+    name: asset.name,
+    category: asset.category,
+    group: asset.group,
+    isYield: asset.isYield,
     price: asset.price,
     candles: asset.candles,
     candle: asset.currentCandle,
   }));
 }
 
-io.on("connection", (socket) => {
-  socket.emit("phase", "running");
-  socket.emit("assetSnapshot", { assets: initialAssetPayload(), tickMs: TICK_MS });
+function initialAdminAssetPayload() {
+  const base = initialAssetPayload();
+  return base.map((item) => ({
+    ...item,
+    fairValue: sim.assets.find((asset) => asset.id === item.id)?.fairValue ?? item.price,
+  }));
+}
 
-  socket.on("join", (name, ack) => {
-    const nm = String(name || "Player").trim() || "Player";
+app.get("/api/events/:code/players", (req, res) => {
+  const eventCode = req.params.code;
+  const rows = [...players.values()]
+    .filter((player) => !eventCode || player.eventCode === eventCode)
+    .map((player) => ({
+      runId: player.runId,
+      name: player.name,
+      joinedAt: player.joinedAt,
+      status: player.status,
+      latestScore: player.latestScore,
+    }));
+  res.json({ players: rows });
+});
+
+app.get("/api/events/:code/status", (req, res) => {
+  const code = req.params.code;
+  res.json({ eventCode: code, phase: sim.phase });
+});
+
+app.post("/api/admin/phase", (req, res) => {
+  const { phase } = req.body || {};
+  if (!["running", "paused", "ended"].includes(phase)) {
+    res.status(400).json({ ok: false, message: "Invalid phase." });
+    return;
+  }
+  setPhase(phase);
+  res.json({ ok: true, phase });
+});
+
+io.on("connection", (socket) => {
+  const role = socket.handshake.query?.role;
+  if (role === "admin") {
+    adminSockets.add(socket.id);
+    socket.emit("phase", sim.phase);
+    socket.emit("adminAssetSnapshot", { assets: initialAdminAssetPayload(), tickMs: sim.simCfg.tickMs });
+  } else {
+    socket.emit("phase", sim.phase);
+    socket.emit("assetSnapshot", { assets: initialAssetPayload(), tickMs: sim.simCfg.tickMs });
+  }
+
+  socket.on("join", (payload, ack) => {
+    const nameInput = typeof payload === "string" ? payload : payload?.name;
+    const nm = String(nameInput || "Player").trim() || "Player";
+    const runId = String(payload?.runId || `socket-${socket.id}`);
+    const eventCode = payload?.eventCode ? String(payload.eventCode) : null;
+
+    if (eventCode && !sim.eventCode) {
+      sim.eventCode = eventCode;
+    }
+
     players.set(socket.id, {
       id: socket.id,
+      runId,
+      eventCode,
       name: nm,
       positions: {},
       orders: [],
       cash: DEFAULT_CASH,
+      joinedAt: new Date().toISOString(),
+      status: "active",
+      latestScore: null,
     });
-    ack?.({ ok: true, phase: "running", assets: initialAssetPayload(), tickMs: TICK_MS });
+
+    ack?.({ ok: true, phase: sim.phase, assets: initialAssetPayload(), tickMs: sim.simCfg.tickMs });
     publishPortfolio(players.get(socket.id));
   });
 
@@ -331,11 +472,17 @@ io.on("connection", (socket) => {
       ack?.({ ok: false, reason: "not-joined" });
       return;
     }
-    const asset = assets.find((item) => item.id === order?.assetId);
+    if (sim.phase !== "running") {
+      ack?.({ ok: false, reason: "market-paused" });
+      return;
+    }
+
+    const asset = sim.assets.find((item) => item.id === order?.assetId);
     if (!asset) {
       ack?.({ ok: false, reason: "unknown-asset" });
       return;
     }
+
     const qty = Math.max(1, Math.floor(Number(order?.qty || 0)));
     const side = order?.side === "sell" ? "sell" : "buy";
     const type = order?.type === "limit" ? "limit" : "market";
@@ -346,18 +493,12 @@ io.on("connection", (socket) => {
       return;
     }
 
-    if (side === "buy" && type === "market" && qty * asset.price > player.cash) {
-      ack?.({ ok: false, reason: "insufficient-cash" });
-      return;
-    }
-
     if (type === "market") {
-      fillOrder(player, {
-        assetId: asset.id,
-        side,
-        qty,
-        price: asset.price,
-      }, asset);
+      if (side === "buy" && qty * asset.price > player.cash) {
+        ack?.({ ok: false, reason: "insufficient-cash" });
+        return;
+      }
+      fillOrder(player, { assetId: asset.id, side, qty, price: asset.price }, asset);
       ack?.({ ok: true, filled: true });
       return;
     }
@@ -377,39 +518,26 @@ io.on("connection", (socket) => {
       assetId: asset.id,
       side,
       qty,
-      price: Number(limitPrice.toFixed(2)),
+      price: quantize(limitPrice, asset.decimals),
       type,
       t: Date.now(),
     };
+
     player.orders.push(orderData);
     publishPortfolio(player);
     ack?.({ ok: true, filled: false });
   });
 
-  socket.on("cancelOrders", (assetId) => {
-    const player = players.get(socket.id);
-    if (!player) return;
-    if (assetId) {
-      player.orders = player.orders.filter((order) => order.assetId !== assetId);
-    } else {
-      player.orders = [];
-    }
-    publishPortfolio(player);
-  });
 
-  socket.on("closePosition", (assetId) => {
-    const player = players.get(socket.id);
-    if (!player) return;
-    const asset = assets.find((item) => item.id === assetId);
-    if (!asset) return;
-    const positionData = ensurePosition(player, assetId);
-    if (positionData.position === 0) return;
-    const side = positionData.position > 0 ? "sell" : "buy";
-    const qty = Math.abs(positionData.position);
-    fillOrder(player, { assetId, side, qty, price: asset.price }, asset);
+  socket.on("adminPhaseSync", (payload) => {
+    if (!adminSockets.has(socket.id)) return;
+    const phase = String(payload?.phase || "").toLowerCase();
+    if (!["running", "paused", "ended"].includes(phase)) return;
+    setPhase(phase);
   });
 
   socket.on("disconnect", () => {
+    adminSockets.delete(socket.id);
     players.delete(socket.id);
   });
 });
@@ -417,5 +545,5 @@ io.on("connection", (socket) => {
 startTicking();
 
 server.listen(PORT, () => {
-  console.log(`Server running on ${PORT}`);
+  console.log(`Server running on ${PORT}. Scenario: ${sim.scenario.id || "unknown"}`);
 });
