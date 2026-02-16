@@ -30,7 +30,7 @@
   {
     "id": "test_2min",
     "name": "Test (2 min)",
-    "description": "Two-minute smoke test with fair-value news shocks across SPX, AAPL, WTI, and US10Y.",
+    "description": "Two-minute smoke test for joins, news feed, fair value drift, and run completion.",
     "duration_seconds": 120,
     "version": 2
   }

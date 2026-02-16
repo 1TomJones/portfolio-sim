@@ -5,7 +5,10 @@ import cors from "cors";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
-import { clamp } from "./src/engine/utils.js";
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,6 +23,7 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use("/assets", express.static(path.join(__dirname, "public/assets")));
 app.use("/scenarios", express.static(path.join(__dirname, "scenarios")));
 app.get("/healthz", (_req, res) => res.send("ok"));
+app.get("/health", (_req, res) => res.status(200).json({ ok: true }));
 
 app.get("/app-config.js", (_req, res) => {
   const config = {
@@ -36,21 +40,8 @@ const DEFAULT_CASH = 100000;
 const backendUrl = process.env.VITE_BACKEND_URL || "";
 
 const scenariosPath = path.join(__dirname, "scenarios");
+const metadataPath = path.join(__dirname, "public", "meta", "scenarios.json");
 const fallbackScenarioId = process.env.DEFAULT_SCENARIO_ID || "global-macro";
-const metadataScenarios = [
-  {
-    id: "test_2min",
-    title: "Test (2 min)",
-    description: "Two-minute smoke test with fair-value news shocks across SPX, AAPL, WTI, and US10Y.",
-    duration_minutes: 2,
-  },
-  {
-    id: "macro_15min",
-    title: "Macro Crosswinds (15 min)",
-    description: "15-minute cross-asset macro scenario with sector rotation, energy shocks, and risk regime shifts.",
-    duration_minutes: 15,
-  },
-];
 
 function safeJsonRead(filePath) {
   try {
@@ -89,6 +80,29 @@ function listScenarios() {
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function getScenarioMetadata() {
+  const fromFile = safeJsonRead(metadataPath);
+  if (Array.isArray(fromFile) && fromFile.length) {
+    return fromFile.map((scenario) => ({
+      ...scenario,
+      scenario_id: scenario.scenario_id || scenario.id,
+      duration_minutes:
+        Number(scenario.duration_minutes) ||
+        (Number.isFinite(Number(scenario.duration_seconds)) ? Number(scenario.duration_seconds) / 60 : undefined),
+    }));
+  }
+
+  return listScenarios().map((scenario) => ({
+    id: scenario.id,
+    scenario_id: scenario.id,
+    name: scenario.name,
+    description: scenario.description,
+    duration_seconds: scenario.duration_seconds,
+    duration_minutes: scenario.duration_seconds ? scenario.duration_seconds / 60 : undefined,
+    version: scenario.version,
+  }));
 }
 
 function quantize(value, decimals = 2) {
@@ -240,6 +254,13 @@ function activateScenario(scenarioId) {
   if (players.size > 0) return { ok: false, reason: "locked" };
   resetSimulation(requested);
   return { ok: true };
+}
+
+function applyDurationOverride(durationMinutes) {
+  const asNumber = Number(durationMinutes);
+  if (!Number.isFinite(asNumber) || asNumber <= 0) return;
+  const seconds = asNumber * 60;
+  sim.durationTicks = Math.ceil((seconds * 1000) / sim.simCfg.tickMs);
 }
 
 function ensurePosition(player, assetId) {
@@ -548,28 +569,64 @@ function initialAdminAssetPayload() {
 
 
 app.get("/meta/scenarios", (_req, res) => {
-  res.json(listScenarios());
+  res.json(getScenarioMetadata());
 });
 
 app.get("/meta/scenarios.json", (_req, res) => {
-  res.json(listScenarios());
+  res.json(getScenarioMetadata());
 });
 
-function getMetadataPayload() {
+function getMetadataPayload(req) {
+  const scenarios = getScenarioMetadata();
+  const baseUrl = `${req.protocol}://${req.get("host")}`;
   return {
     sim_id: "portfolio_sim",
-    scenarios: metadataScenarios,
+    scenarios,
+    links: {
+      player: `${baseUrl}/?event_code={event_code}&scenario_id={scenario_id}`,
+      admin: `${baseUrl}/admin.html?event_code={event_code}&scenario_id={scenario_id}`,
+    },
   };
 }
 
-app.get("/metadata", (_req, res) => {
+app.get("/metadata", (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
-  res.json(getMetadataPayload());
+  res.json(getMetadataPayload(req));
 });
 
-app.get("/api/metadata", (_req, res) => {
+app.get("/api/metadata", (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
-  res.json(getMetadataPayload());
+  res.json(getMetadataPayload(req));
+});
+
+app.get("/api/scenarios", (_req, res) => {
+  res.json({ scenarios: getScenarioMetadata() });
+});
+
+app.post("/api/admin/start", (req, res) => {
+  const { scenario_id: scenarioId, duration_minutes: durationMinutes, event_code: eventCode } = req.body || {};
+  const activation = activateScenario(scenarioId);
+  if (!activation.ok) {
+    const status = activation.reason === "not-found" ? 404 : 409;
+    res.status(status).json({ ok: false, reason: activation.reason });
+    return;
+  }
+
+  if (eventCode) {
+    sim.eventCode = String(eventCode);
+  }
+  applyDurationOverride(durationMinutes);
+  setPhase("running");
+  res.json({ ok: true, scenario_id: sim.scenario?.id || null, event_code: sim.eventCode, duration_ticks: sim.durationTicks });
+});
+
+app.use((req, _res, next) => {
+  if (req.method !== "GET") return next();
+  const scenarioId = String(req.query?.scenario_id || "").trim();
+  if (scenarioId) activateScenario(scenarioId);
+  if (req.query?.duration_minutes) applyDurationOverride(req.query.duration_minutes);
+  if (req.query?.event_code && !sim.eventCode) sim.eventCode = String(req.query.event_code);
+  next();
 });
 
 app.get("/api/events/:code/players", (req, res) => {
