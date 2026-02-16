@@ -1,27 +1,18 @@
 {
   "id": "test_2min",
   "name": "Test (2 min)",
-  "description": "2 news events, quick run.",
-  "version": 1,
+  "description": "Two-minute smoke test for joins, news feed, fair value drift, and run completion.",
+  "version": 2,
   "duration_seconds": 120,
   "tickMs": 1000,
   "ticksPerCandle": 5,
   "maxCandles": 80,
-  "meanReversion": 0.12,
-  "baseNoise": 0.0015,
+  "baseNoise": 0.0014,
   "factors": {
-    "risk": {
-      "vol": 0.001,
-      "decay": 0.95
-    },
-    "inflation": {
-      "vol": 0.0008,
-      "decay": 0.96
-    },
-    "oil": {
-      "vol": 0.0012,
-      "decay": 0.94
-    }
+    "risk": { "vol": 0.0009, "decay": 0.96 },
+    "rates": { "vol": 0.0007, "decay": 0.97 },
+    "inflation": { "vol": 0.0008, "decay": 0.96 },
+    "energy": { "vol": 0.0011, "decay": 0.95 }
   },
   "assets": [
     {
@@ -31,105 +22,83 @@
       "category": "index",
       "group": "indices",
       "startPrice": 5000,
-      "start_price": 5000,
       "priceDecimals": 1,
-      "factors": {
-        "risk": 1.0,
-        "inflation": 0.25,
-        "oil": -0.06
-      }
+      "factors": { "risk": 1.0, "rates": -0.3, "inflation": -0.2, "energy": -0.08 }
     },
     {
       "id": "eq-aapl",
       "symbol": "AAPL",
       "name": "Apple",
       "category": "equity",
-      "group": "stocks",
+      "group": "equities",
       "startPrice": 180,
-      "start_price": 180,
       "priceDecimals": 2,
-      "factors": {
-        "risk": 0.95,
-        "inflation": 0.55,
-        "oil": -0.04
-      }
+      "factors": { "risk": 0.9, "rates": -0.35, "inflation": -0.18, "energy": -0.04 }
     },
     {
       "id": "cmd-wti",
       "symbol": "WTI",
       "name": "WTI Crude",
       "category": "commodity",
-      "group": "energy",
+      "group": "commodities",
       "startPrice": 75,
-      "start_price": 75,
       "priceDecimals": 2,
-      "factors": {
-        "risk": 0.2,
-        "inflation": -0.05,
-        "oil": 1.0
-      }
+      "factors": { "risk": 0.22, "rates": -0.06, "inflation": 0.15, "energy": 1.0 }
+    },
+    {
+      "id": "bond-us10y",
+      "symbol": "US10Y_YIELD",
+      "name": "US 10Y Yield",
+      "category": "bond",
+      "group": "bonds",
+      "isYield": true,
+      "startPrice": 4.0,
+      "priceDecimals": 3,
+      "factors": { "risk": -0.2, "rates": 1.0, "inflation": 0.55, "energy": 0.08 }
     }
   ],
   "correlations": {
-    "SPX": {
-      "AAPL": 0.75,
-      "WTI": 0.2
+    "class": {
+      "equities_indices": 0.82,
+      "commodities_partial": 0.35,
+      "bonds_vs_rates": -0.7
     },
-    "AAPL": {
-      "SPX": 0.75,
-      "WTI": 0.15
-    },
-    "WTI": {
-      "SPX": 0.2,
-      "AAPL": 0.15
+    "pairs": {
+      "SPX": { "AAPL": 0.8, "WTI": 0.22, "US10Y_YIELD": -0.35 },
+      "AAPL": { "SPX": 0.8, "WTI": 0.15, "US10Y_YIELD": -0.4 },
+      "WTI": { "SPX": 0.22, "AAPL": 0.15, "US10Y_YIELD": 0.2 },
+      "US10Y_YIELD": { "SPX": -0.35, "AAPL": -0.4, "WTI": 0.2 }
     }
   },
   "news": [
     {
-      "tick": 20,
-      "timestamp_seconds": 20,
-      "headline": "Inflation cooler than expected",
-      "factorShocks": {
-        "inflation": 0.0109,
-        "risk": 0.0015
-      },
-      "assetShocks": {
-        "idx-spx": 0.003,
-        "eq-aapl": 0.006
-      },
+      "tick": 30,
+      "timestamp_seconds": 30,
+      "headline": "US CPI comes in hotter than expected.",
+      "decay_seconds": 20,
+      "factorShocks": { "inflation": 0.011, "rates": 0.007, "risk": -0.004, "energy": 0.003 },
       "impacts": [
-        {
-          "symbol": "SPX",
-          "fv_pct_delta": 0.003
-        },
-        {
-          "symbol": "AAPL",
-          "fv_pct_delta": 0.006
-        }
+        { "symbol": "US10Y_YIELD", "fv_pct_delta": 0.0375, "decay_seconds": 20 },
+        { "symbol": "SPX", "fv_pct_delta": -0.01, "decay_seconds": 20 },
+        { "symbol": "AAPL", "fv_pct_delta": -0.012, "decay_seconds": 20 },
+        { "symbol": "WTI", "fv_pct_delta": 0.005, "decay_seconds": 20 }
       ]
     },
     {
-      "tick": 70,
-      "timestamp_seconds": 70,
-      "headline": "Oil supply disruption rumor",
-      "factorShocks": {
-        "oil": 0.032,
-        "risk": -0.0012
-      },
-      "assetShocks": {
-        "cmd-wti": 0.03,
-        "idx-spx": -0.002
-      },
+      "tick": 90,
+      "timestamp_seconds": 90,
+      "headline": "Fed speaker hints 'policy may be sufficiently restrictive'.",
+      "decay_seconds": 15,
+      "factorShocks": { "inflation": -0.006, "rates": -0.006, "risk": 0.003, "energy": -0.001 },
       "impacts": [
-        {
-          "symbol": "WTI",
-          "fv_pct_delta": 0.03
-        },
-        {
-          "symbol": "SPX",
-          "fv_pct_delta": -0.002
-        }
+        { "symbol": "US10Y_YIELD", "fv_pct_delta": -0.025, "decay_seconds": 15 },
+        { "symbol": "SPX", "fv_pct_delta": 0.008, "decay_seconds": 15 },
+        { "symbol": "AAPL", "fv_pct_delta": 0.01, "decay_seconds": 15 }
       ]
     }
-  ]
+  ],
+  "rules": {
+    "scoring_outputs": ["pnl", "max_drawdown", "sharpe_proxy"],
+    "run_summary": { "emit_on_end": true }
+  }
 }

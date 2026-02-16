@@ -15,10 +15,10 @@
   },
   {
     "id": "macro_15min",
-    "name": "Macro Cross-Asset (15 min)",
-    "description": "Rates/inflation/oil/tech shocks with correlations.",
+    "name": "Macro Crosswinds (15 min)",
+    "description": "15-minute multi-asset macro event with sector rotation, commodity shocks, and risk regime shifts.",
     "duration_seconds": 900,
-    "version": 1
+    "version": 2
   },
   {
     "id": "macro_rotation_15m",
@@ -30,8 +30,8 @@
   {
     "id": "test_2min",
     "name": "Test (2 min)",
-    "description": "2 news events, quick run.",
+    "description": "Two-minute smoke test with fair-value news shocks across SPX, AAPL, WTI, and US10Y.",
     "duration_seconds": 120,
-    "version": 1
+    "version": 2
   }
 ]

@@ -40,13 +40,13 @@ const metadataScenarios = [
   {
     id: "test_2min",
     title: "Test (2 min)",
-    description: "2 news events, quick run with SPX, AAPL, and WTI reactions.",
+    description: "Two-minute smoke test with fair-value news shocks across SPX, AAPL, WTI, and US10Y.",
     duration_minutes: 2,
   },
   {
     id: "macro_15min",
-    title: "Macro Cross-Asset (15 min)",
-    description: "Rates, inflation, oil, and tech shocks with cross-asset correlation behavior.",
+    title: "Macro Crosswinds (15 min)",
+    description: "15-minute cross-asset macro scenario with sector rotation, energy shocks, and risk regime shifts.",
     duration_minutes: 15,
   },
 ];
@@ -367,9 +367,6 @@ function applyNewsIfAny() {
     for (const [assetId, pctShock] of Object.entries(assetShocks)) {
       const asset = sim.assets.find((candidate) => candidate.id === assetId);
       if (!asset) continue;
-      const scalar = 1 + Number(pctShock || 0);
-      asset.fairValue = quantize(Math.max(0.01, asset.fairValue * scalar), asset.decimals);
-      asset.price = quantize(Math.max(0.01, asset.price * scalar), asset.decimals);
       registerAssetImpact(asset.id, Number(pctShock || 0), Number(nextNews.decay_seconds || 180));
     }
 
@@ -413,19 +410,21 @@ function computeFairValue(asset) {
 function computeDirectionalReturn(asset) {
   const fv = Math.max(asset.fairValue, 0.01);
   const price = Math.max(asset.price, 0.01);
-  const deviationPct = (Math.abs(price - fv) / fv) * 100;
-  const excessPct = Math.max(0, deviationPct - 2);
-  const towardRaw = 0.5 + excessPct / 100;
-  const pToward = Math.max(0.05, Math.min(0.95, towardRaw));
+  const d = (price - fv) / fv;
+  const p = Math.abs(d) * 100;
+  const excessPct = Math.max(0, p - 2);
 
-  const towardDirection = price === fv ? 0 : price < fv ? 1 : -1;
-  const randomDirection = Math.random() < 0.5 ? 1 : -1;
-  const moveDirection = towardDirection === 0
-    ? randomDirection
-    : Math.random() < pToward
-      ? towardDirection
-      : towardDirection * -1;
-
+  let probUp = 0.5;
+  if (p > 2) {
+    const probabilityShift = excessPct / 100;
+    if (price > fv) {
+      probUp -= probabilityShift;
+    } else if (price < fv) {
+      probUp += probabilityShift;
+    }
+  }
+  probUp = clamp(probUp, 0.05, 0.95);
+  const moveDirection = Math.random() < probUp ? 1 : -1;
   const baselineStep = sim.simCfg.baseNoise * (0.45 + Math.random() * 0.75);
   const distanceStep = Math.min(0.018, excessPct / 250);
   return moveDirection * (baselineStep + distanceStep);
