@@ -1,8 +1,8 @@
 {
   "id": "demo_2min",
-  "name": "Demo Scenario (2 Minutes)",
-  "description": "Two-minute placeholder scenario with two live news shocks.",
-  "version": "1.0.0",
+  "name": "Demo Scenario (2 min)",
+  "description": "Two-minute smoke-test scenario for event wiring, news handling, fair-value drift, and automatic run completion.",
+  "version": 1,
   "duration_seconds": 120,
   "tickMs": 1000,
   "ticksPerCandle": 5,
@@ -10,53 +10,72 @@
   "meanReversion": 0.12,
   "baseNoise": 0.0015,
   "factors": {
-    "globalRisk": { "vol": 0.001, "decay": 0.95 },
-    "tech": { "vol": 0.0014, "decay": 0.94 },
-    "energy": { "vol": 0.0013, "decay": 0.94 }
+    "risk": { "vol": 0.001, "decay": 0.95 },
+    "inflation": { "vol": 0.0008, "decay": 0.96 },
+    "oil": { "vol": 0.0012, "decay": 0.94 }
   },
   "assets": [
+    {
+      "id": "idx-spx",
+      "symbol": "SPX",
+      "name": "S&P 500",
+      "category": "index",
+      "group": "indices",
+      "startPrice": 5000,
+      "start_price": 5000,
+      "priceDecimals": 1,
+      "factors": { "risk": 1.0, "inflation": 0.25, "oil": -0.06 }
+    },
     {
       "id": "eq-aapl",
       "symbol": "AAPL",
       "name": "Apple",
-      "category": "equities",
+      "category": "equity",
       "group": "stocks",
       "startPrice": 180,
+      "start_price": 180,
       "priceDecimals": 2,
-      "factors": { "globalRisk": 0.7, "tech": 1.0 }
-    },
-    {
-      "id": "eq-msft",
-      "symbol": "MSFT",
-      "name": "Microsoft",
-      "category": "equities",
-      "group": "stocks",
-      "startPrice": 400,
-      "priceDecimals": 2,
-      "factors": { "globalRisk": 0.7, "tech": 0.9 }
+      "factors": { "risk": 0.95, "inflation": 0.55, "oil": -0.04 }
     },
     {
       "id": "cmd-wti",
       "symbol": "WTI",
       "name": "WTI Crude",
-      "category": "commodities",
+      "category": "commodity",
+      "group": "energy",
       "startPrice": 75,
+      "start_price": 75,
       "priceDecimals": 2,
-      "factors": { "globalRisk": 0.3, "energy": 1.2 }
+      "factors": { "risk": 0.2, "inflation": -0.05, "oil": 1.0 }
     }
   ],
+  "correlations": {
+    "SPX": { "AAPL": 0.75, "WTI": 0.2 },
+    "AAPL": { "SPX": 0.75, "WTI": 0.15 },
+    "WTI": { "SPX": 0.2, "AAPL": 0.15 }
+  },
   "news": [
     {
       "tick": 20,
-      "headline": "Breaking: AI demand guidance upgraded across big tech.",
-      "factorShocks": { "tech": 0.01, "globalRisk": 0.004 },
-      "assetShocks": { "eq-aapl": 0.01, "eq-msft": 0.008 }
+      "timestamp_seconds": 20,
+      "headline": "Inflation cooler than expected",
+      "factorShocks": { "inflation": 0.0109, "risk": 0.0015 },
+      "assetShocks": { "idx-spx": 0.003, "eq-aapl": 0.006 },
+      "impacts": [
+        { "symbol": "SPX", "fv_pct_delta": 0.003 },
+        { "symbol": "AAPL", "fv_pct_delta": 0.006 }
+      ]
     },
     {
       "tick": 80,
-      "headline": "Energy desk alert: short-term crude supply disruption reported.",
-      "factorShocks": { "energy": 0.012, "globalRisk": -0.002 },
-      "assetShocks": { "cmd-wti": 0.02 }
+      "timestamp_seconds": 80,
+      "headline": "Oil supply disruption rumor",
+      "factorShocks": { "oil": 0.032, "risk": -0.0012 },
+      "assetShocks": { "cmd-wti": 0.03, "idx-spx": -0.002 },
+      "impacts": [
+        { "symbol": "WTI", "fv_pct_delta": 0.03 },
+        { "symbol": "SPX", "fv_pct_delta": -0.002 }
+      ]
     }
   ]
 }
