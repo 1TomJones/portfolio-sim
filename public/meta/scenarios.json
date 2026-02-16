@@ -1,0 +1,23 @@
+[
+  {
+    "id": "demo_2min",
+    "name": "Demo Scenario (2 min)",
+    "description": "Two-minute smoke-test scenario for event wiring, news handling, fair-value drift, and automatic run completion.",
+    "duration_seconds": 120,
+    "version": 1
+  },
+  {
+    "id": "global-macro",
+    "name": "Global Macro Rotation",
+    "description": "",
+    "duration_seconds": 0,
+    "version": "1.0.0"
+  },
+  {
+    "id": "macro_rotation_15m",
+    "name": "Macro Rotation (15 min)",
+    "description": "CPI shock, rate repricing, energy spike, then relief rally. Designed for portfolio/risk discipline.",
+    "duration_seconds": 900,
+    "version": 1
+  }
+]

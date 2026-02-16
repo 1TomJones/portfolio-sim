@@ -5,7 +5,9 @@
   "scripts": {
     "start": "node server.mjs",
     "test": "node --test",
-    "calibrate": "node scripts/calibrate-flow.mjs"
+    "calibrate": "node scripts/calibrate-flow.mjs",
+    "build:meta": "node scripts/generate-scenario-meta.mjs",
+    "prestart": "npm run build:meta"
   },
   "dependencies": {
     "express": "^4.19.2",

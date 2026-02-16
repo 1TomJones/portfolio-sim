@@ -61,17 +61,18 @@ function listScenarios() {
   return fs
     .readdirSync(scenariosPath)
     .filter((name) => name.endsWith(".json"))
-    .map((name) => safeJsonRead(path.join(scenariosPath, name)))
-    .filter(Boolean)
-    .map((scenario) => ({
-      id: scenario.id,
-      scenario_id: scenario.id,
-      name: scenario.name || scenario.id || "Unnamed scenario",
-      duration_seconds: Number(scenario.duration_seconds || scenario.durationSeconds || 0),
-      description: scenario.description || "",
-      version: scenario.version || "1.0.0",
-    }))
-    .filter((scenario) => scenario.id)
+    .map((name) => {
+      const scenario = safeJsonRead(path.join(scenariosPath, name));
+      const id = path.basename(name, ".json");
+      return {
+        id,
+        scenario_id: id,
+        name: scenario?.name || id || "Unnamed scenario",
+        duration_seconds: Number(scenario?.duration_seconds || scenario?.durationSeconds || 0),
+        description: scenario?.description || "",
+        version: scenario?.version || "1.0.0",
+      };
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -208,6 +209,8 @@ function decayAssetImpacts() {
 let sim = createSimulationState(fallbackScenarioId);
 const players = new Map();
 const adminSockets = new Set();
+const loadedScenarios = listScenarios();
+console.log(`Loaded ${loadedScenarios.length} scenarios: ${loadedScenarios.map((scenario) => scenario.id).join(", ")}`);
 
 function resetSimulation(scenarioId) {
   sim = createSimulationState(scenarioId);
@@ -525,6 +528,10 @@ function initialAdminAssetPayload() {
 
 
 app.get("/meta/scenarios", (_req, res) => {
+  res.json(listScenarios());
+});
+
+app.get("/meta/scenarios.json", (_req, res) => {
   res.json(listScenarios());
 });
 
