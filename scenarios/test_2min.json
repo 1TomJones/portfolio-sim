@@ -109,8 +109,8 @@
       ]
     },
     {
-      "tick": 80,
-      "timestamp_seconds": 80,
+      "tick": 70,
+      "timestamp_seconds": 70,
       "headline": "Oil supply disruption rumor",
       "factorShocks": {
         "oil": 0.032,

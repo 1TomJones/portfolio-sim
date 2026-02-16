@@ -39,14 +39,14 @@ const fallbackScenarioId = process.env.DEFAULT_SCENARIO_ID || "global-macro";
 const metadataScenarios = [
   {
     id: "test_2min",
-    name: "Test (2 min)",
-    description: "2 news events, quick run.",
+    title: "Test (2 min)",
+    description: "2 news events, quick run with SPX, AAPL, and WTI reactions.",
     duration_minutes: 2,
   },
   {
     id: "macro_15min",
-    name: "Macro Cross-Asset (15 min)",
-    description: "Rates/inflation/oil/tech shocks with correlations.",
+    title: "Macro Cross-Asset (15 min)",
+    description: "Rates, inflation, oil, and tech shocks with cross-asset correlation behavior.",
     duration_minutes: 15,
   },
 ];
@@ -413,12 +413,18 @@ function computeFairValue(asset) {
 function computeDirectionalReturn(asset) {
   const fv = Math.max(asset.fairValue, 0.01);
   const price = Math.max(asset.price, 0.01);
-  const distancePct = (Math.abs(price - fv) / fv) * 100;
-  const excessPct = Math.max(0, distancePct - 2);
+  const deviationPct = (Math.abs(price - fv) / fv) * 100;
+  const excessPct = Math.max(0, deviationPct - 2);
   const towardRaw = 0.5 + excessPct / 100;
-  const pToward = Math.max(0.1, Math.min(0.9, towardRaw));
-  const towardDirection = price < fv ? 1 : -1;
-  const moveDirection = Math.random() < pToward ? towardDirection : towardDirection * -1;
+  const pToward = Math.max(0.05, Math.min(0.95, towardRaw));
+
+  const towardDirection = price === fv ? 0 : price < fv ? 1 : -1;
+  const randomDirection = Math.random() < 0.5 ? 1 : -1;
+  const moveDirection = towardDirection === 0
+    ? randomDirection
+    : Math.random() < pToward
+      ? towardDirection
+      : towardDirection * -1;
 
   const baselineStep = sim.simCfg.baseNoise * (0.45 + Math.random() * 0.75);
   const distanceStep = Math.min(0.018, excessPct / 250);
@@ -549,13 +555,21 @@ app.get("/meta/scenarios.json", (_req, res) => {
   res.json(listScenarios());
 });
 
+function getMetadataPayload() {
+  return {
+    sim_id: "portfolio_sim",
+    scenarios: metadataScenarios,
+  };
+}
+
+app.get("/metadata", (_req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.json(getMetadataPayload());
+});
+
 app.get("/api/metadata", (_req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
-  res.json({
-    sim_key: "portfolio_sim",
-    version: "1.0",
-    scenarios: metadataScenarios,
-  });
+  res.json(getMetadataPayload());
 });
 
 app.get("/api/events/:code/players", (req, res) => {
