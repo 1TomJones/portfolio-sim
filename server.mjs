@@ -17,6 +17,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/assets", express.static(path.join(__dirname, "public/assets")));
+app.use("/scenarios", express.static(path.join(__dirname, "scenarios")));
 app.get("/healthz", (_req, res) => res.send("ok"));
 
 app.get("/app-config.js", (_req, res) => {
@@ -44,14 +45,33 @@ function safeJsonRead(filePath) {
   }
 }
 
-function loadScenario(scenarioId) {
-  const wanted = String(scenarioId || fallbackScenarioId);
+function loadScenarioExact(scenarioId) {
+  const wanted = String(scenarioId || "").trim();
+  if (!wanted) return null;
   const exact = path.join(scenariosPath, `${wanted}.json`);
-  if (fs.existsSync(exact)) {
-    return safeJsonRead(exact);
-  }
-  const fallback = path.join(scenariosPath, `${fallbackScenarioId}.json`);
-  return safeJsonRead(fallback);
+  return fs.existsSync(exact) ? safeJsonRead(exact) : null;
+}
+
+function loadScenario(scenarioId) {
+  return loadScenarioExact(scenarioId) || loadScenarioExact(fallbackScenarioId);
+}
+
+function listScenarios() {
+  if (!fs.existsSync(scenariosPath)) return [];
+  return fs
+    .readdirSync(scenariosPath)
+    .filter((name) => name.endsWith(".json"))
+    .map((name) => safeJsonRead(path.join(scenariosPath, name)))
+    .filter(Boolean)
+    .map((scenario) => ({
+      id: scenario.id,
+      name: scenario.name || scenario.id || "Unnamed scenario",
+      duration_seconds: Number(scenario.duration_seconds || scenario.durationSeconds || 0),
+      description: scenario.description || "",
+      version: scenario.version || "1.0.0",
+    }))
+    .filter((scenario) => scenario.id)
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function quantize(value, decimals = 2) {
@@ -128,6 +148,9 @@ function createSimulationState(scenarioId) {
     return acc;
   }, {});
 
+  const durationSeconds = Number(scenario.duration_seconds || scenario.durationSeconds || 0);
+  const durationTicks = durationSeconds > 0 ? Math.ceil((durationSeconds * 1000) / simCfg.tickMs) : 0;
+
   return {
     scenario,
     simCfg,
@@ -139,12 +162,28 @@ function createSimulationState(scenarioId) {
     phase: "running",
     eventCode: null,
     tickTimer: null,
+    durationTicks,
   };
 }
 
 let sim = createSimulationState(fallbackScenarioId);
 const players = new Map();
 const adminSockets = new Set();
+
+function resetSimulation(scenarioId) {
+  sim = createSimulationState(scenarioId);
+  startTicking();
+}
+
+function activateScenario(scenarioId) {
+  const requested = String(scenarioId || "").trim();
+  if (!requested || requested === sim.scenario?.id) return { ok: true };
+  const exists = loadScenarioExact(requested);
+  if (!exists) return { ok: false, reason: "not-found" };
+  if (players.size > 0) return { ok: false, reason: "locked" };
+  resetSimulation(requested);
+  return { ok: true };
+}
 
 function ensurePosition(player, assetId) {
   if (!player.positions[assetId]) {
@@ -268,10 +307,21 @@ function applyNewsIfAny() {
       sim.factors[factorName].level += Number(shock || 0);
     }
 
+    const assetShocks = nextNews.assetShocks || {};
+    for (const [assetId, pctShock] of Object.entries(assetShocks)) {
+      const asset = sim.assets.find((candidate) => candidate.id === assetId);
+      if (!asset) continue;
+      const scalar = 1 + Number(pctShock || 0);
+      asset.fairValue = quantize(Math.max(0.01, asset.fairValue * scalar), asset.decimals);
+      asset.price = quantize(Math.max(0.01, asset.price * scalar), asset.decimals);
+    }
+
     io.emit("news", {
       tick: sim.tick,
       headline: nextNews.headline,
       factorShocks,
+      assetShocks,
+      scenarioId: sim.scenario?.id || null,
     });
   }
 }
@@ -361,9 +411,13 @@ function stepTick() {
 
   io.emit("assetTick", { assets: updates, tick: sim.tick });
 
+  if (sim.durationTicks > 0 && sim.tick >= sim.durationTicks) {
+    setPhase("ended");
+  }
+
   for (const socketId of adminSockets) {
     const socket = io.sockets.sockets.get(socketId);
-    socket?.emit("adminAssetTick", { assets: adminUpdates, tick: sim.tick });
+    socket?.emit("adminAssetTick", { assets: adminUpdates, tick: sim.tick, scenario: sim.scenario });
   }
 }
 
@@ -399,6 +453,11 @@ function initialAdminAssetPayload() {
   }));
 }
 
+
+app.get("/meta/scenarios", (_req, res) => {
+  res.json(listScenarios());
+});
+
 app.get("/api/events/:code/players", (req, res) => {
   const eventCode = req.params.code;
   const rows = [...players.values()]
@@ -430,13 +489,22 @@ app.post("/api/admin/phase", (req, res) => {
 
 io.on("connection", (socket) => {
   const role = socket.handshake.query?.role;
+  const requestedScenarioId = String(socket.handshake.query?.scenario_id || "").trim();
+  const scenarioActivation = activateScenario(requestedScenarioId);
+
+  if (!scenarioActivation.ok) {
+    socket.emit("scenarioError", {
+      message: scenarioActivation.reason === "not-found" ? "Scenario not found. Launch from Mint." : "Scenario is already locked for this event.",
+    });
+  }
+
   if (role === "admin") {
     adminSockets.add(socket.id);
     socket.emit("phase", sim.phase);
-    socket.emit("adminAssetSnapshot", { assets: initialAdminAssetPayload(), tickMs: sim.simCfg.tickMs });
+    socket.emit("adminAssetSnapshot", { assets: initialAdminAssetPayload(), tickMs: sim.simCfg.tickMs, scenario: sim.scenario });
   } else {
     socket.emit("phase", sim.phase);
-    socket.emit("assetSnapshot", { assets: initialAssetPayload(), tickMs: sim.simCfg.tickMs });
+    socket.emit("assetSnapshot", { assets: initialAssetPayload(), tickMs: sim.simCfg.tickMs, scenario: sim.scenario });
   }
 
   socket.on("join", (payload, ack) => {
@@ -462,7 +530,7 @@ io.on("connection", (socket) => {
       latestScore: null,
     });
 
-    ack?.({ ok: true, phase: sim.phase, assets: initialAssetPayload(), tickMs: sim.simCfg.tickMs });
+    ack?.({ ok: true, phase: sim.phase, assets: initialAssetPayload(), tickMs: sim.simCfg.tickMs, scenario: sim.scenario });
     publishPortfolio(players.get(socket.id));
   });
 

@@ -17,6 +17,7 @@
         <div class="hud-line">
           <span id="connectionBadge" class="pill hud-pill" data-state="connecting">Connecting…</span>
           <span id="phaseBadge" class="pill hud-pill">Phase: Lobby</span>
+          <span id="scenarioLabel" class="pill hud-pill">Scenario: loading…</span>
         </div>
       </div>
       <div class="brand-actions">
@@ -151,18 +152,10 @@
             <h3>News</h3>
             <span class="muted small-text">Live headlines</span>
           </div>
-          <div class="news-body">
+          <div id="newsFeed" class="news-body">
             <div class="news-item">
               <strong>Market feed</strong>
               <span class="muted">Awaiting the next headline...</span>
-            </div>
-            <div class="news-item">
-              <strong>Trader notes</strong>
-              <span class="muted">Watch this space for event updates.</span>
-            </div>
-            <div class="news-item">
-              <strong>Daily briefing</strong>
-              <span class="muted">No new alerts yet.</span>
             </div>
           </div>
         </div>

@@ -1,0 +1,62 @@
+{
+  "id": "demo_2min",
+  "name": "Demo Scenario (2 Minutes)",
+  "description": "Two-minute placeholder scenario with two live news shocks.",
+  "version": "1.0.0",
+  "duration_seconds": 120,
+  "tickMs": 1000,
+  "ticksPerCandle": 5,
+  "maxCandles": 80,
+  "meanReversion": 0.12,
+  "baseNoise": 0.0015,
+  "factors": {
+    "globalRisk": { "vol": 0.001, "decay": 0.95 },
+    "tech": { "vol": 0.0014, "decay": 0.94 },
+    "energy": { "vol": 0.0013, "decay": 0.94 }
+  },
+  "assets": [
+    {
+      "id": "eq-aapl",
+      "symbol": "AAPL",
+      "name": "Apple",
+      "category": "equities",
+      "group": "stocks",
+      "startPrice": 180,
+      "priceDecimals": 2,
+      "factors": { "globalRisk": 0.7, "tech": 1.0 }
+    },
+    {
+      "id": "eq-msft",
+      "symbol": "MSFT",
+      "name": "Microsoft",
+      "category": "equities",
+      "group": "stocks",
+      "startPrice": 400,
+      "priceDecimals": 2,
+      "factors": { "globalRisk": 0.7, "tech": 0.9 }
+    },
+    {
+      "id": "cmd-wti",
+      "symbol": "WTI",
+      "name": "WTI Crude",
+      "category": "commodities",
+      "startPrice": 75,
+      "priceDecimals": 2,
+      "factors": { "globalRisk": 0.3, "energy": 1.2 }
+    }
+  ],
+  "news": [
+    {
+      "tick": 20,
+      "headline": "Breaking: AI demand guidance upgraded across big tech.",
+      "factorShocks": { "tech": 0.01, "globalRisk": 0.004 },
+      "assetShocks": { "eq-aapl": 0.01, "eq-msft": 0.008 }
+    },
+    {
+      "tick": 80,
+      "headline": "Energy desk alert: short-term crude supply disruption reported.",
+      "factorShocks": { "energy": 0.012, "globalRisk": -0.002 },
+      "assetShocks": { "cmd-wti": 0.02 }
+    }
+  ]
+}

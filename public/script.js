@@ -6,6 +6,7 @@ const scenarioId = query.get("scenario_id") || "global-macro";
 const socket = io({
   transports: ["websocket", "polling"],
   upgrade: true,
+  autoConnect: false,
   query: { role: "player", scenario_id: scenarioId, event_code: eventCode, run_id: runId || "" },
 });
 
@@ -21,6 +22,10 @@ const TAB_LABELS = { equities: "Equities", commodities: "Commodities", bonds: "B
 
 const runErrorView = document.getElementById("runErrorView");
 const mintHomeLink = document.getElementById("mintHomeLink");
+const runErrorTitle = runErrorView?.querySelector("h2");
+const runErrorDetail = runErrorView?.querySelector("p.muted");
+const scenarioLabel = document.getElementById("scenarioLabel");
+const newsFeed = document.getElementById("newsFeed");
 const joinView = document.getElementById("joinView");
 const waitView = document.getElementById("waitView");
 const gameView = document.getElementById("gameView");
@@ -77,6 +82,34 @@ function hide(node) {
   if (node) node.classList.add("hidden");
 }
 
+
+function showLaunchError(title, detail) {
+  if (runErrorTitle) runErrorTitle.textContent = title;
+  if (runErrorDetail) runErrorDetail.textContent = detail;
+  hide(joinView);
+  hide(waitView);
+  hide(gameView);
+  show(runErrorView);
+}
+
+async function validateScenario() {
+  try {
+    const response = await fetch(`/scenarios/${encodeURIComponent(scenarioId)}.json`, { cache: "no-store" });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+function pushNewsItem(headline, tick) {
+  if (!newsFeed || !headline) return;
+  const item = document.createElement("div");
+  item.className = "news-item";
+  item.innerHTML = `<strong>T+${tick ?? "—"}s</strong><span class="muted">${headline}</span>`;
+  newsFeed.prepend(item);
+  while (newsFeed.children.length > 6) newsFeed.removeChild(newsFeed.lastElementChild);
+}
 function formatNumber(value, digits = 2) {
   if (!Number.isFinite(value)) return "—";
   return Number(value).toFixed(digits);
@@ -533,6 +566,14 @@ socket.on("openOrders", (payload) => {
   });
 });
 
+socket.on("news", (payload) => {
+  pushNewsItem(payload?.headline, payload?.tick);
+});
+
+socket.on("scenarioError", (payload) => {
+  showLaunchError("Scenario not found. Launch from Mint.", payload?.message || "Scenario not found. Launch from Mint.");
+});
+
 buyBtn?.addEventListener("click", () => handleOrder("buy"));
 sellBtn?.addEventListener("click", () => handleOrder("sell"));
 
@@ -567,19 +608,32 @@ if (mintHomeLink) {
 
 if (runIdLabel) runIdLabel.textContent = runId ? `Run: ${runId}` : "Run: missing";
 
-if (!runId) {
-  hide(joinView);
-  hide(waitView);
-  hide(gameView);
-  show(runErrorView);
-} else {
+async function init() {
+  const scenario = await validateScenario();
+  if (!scenario) {
+    showLaunchError("Scenario not found. Launch from Mint.", "Scenario not found. Launch from Mint.");
+    return;
+  }
+
+  if (scenarioLabel) {
+    scenarioLabel.textContent = `${scenario.name || scenarioId} (${scenario.id || scenarioId})`;
+  }
+
+  if (!runId) {
+    showLaunchError("Missing run_id. Please launch from Mint.", "This simulation must be opened from a Mint run link.");
+    return;
+  }
+
   setResultMessage("Results will be submitted when the round ends.");
+
+  if (submitTestBtn && isDebugSubmissionEnabled) {
+    show(submitTestBtn);
+    submitTestBtn.addEventListener("click", () => submitResults(buildSubmissionPayload({ useSample: true })));
+  }
+
+  socket.connect();
+  setInterval(pollEventStatus, 4000);
+  updatePortfolioSummary();
 }
 
-if (submitTestBtn && runId && isDebugSubmissionEnabled) {
-  show(submitTestBtn);
-  submitTestBtn.addEventListener("click", () => submitResults(buildSubmissionPayload({ useSample: true })));
-}
-
-setInterval(pollEventStatus, 4000);
-updatePortfolioSummary();
+init();

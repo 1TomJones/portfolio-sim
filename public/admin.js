@@ -1,6 +1,7 @@
 const query = new URLSearchParams(window.location.search);
 const eventCode = query.get("event_code") || "";
 const adminToken = query.get("admin_token") || "";
+const scenarioId = query.get("scenario_id") || "global-macro";
 const backendUrl = import.meta.env?.VITE_BACKEND_URL || window.APP_CONFIG?.VITE_BACKEND_URL || "";
 
 const TAB_ORDER = ["equities", "commodities", "bonds"];
@@ -14,6 +15,7 @@ const controlStatus = document.getElementById("controlStatus");
 const assetTabs = document.getElementById("adminAssetTabs");
 const assetsList = document.getElementById("adminAssetsList");
 const selectedAssetLabel = document.getElementById("selectedAssetLabel");
+const adminScenarioLabel = document.getElementById("adminScenarioLabel");
 
 let activeTab = "equities";
 let selectedAssetId = null;
@@ -24,7 +26,7 @@ let priceSeries = null;
 let fairSeries = null;
 let authorized = false;
 
-const socket = io({ transports: ["websocket", "polling"], query: { role: "admin", event_code: eventCode } });
+const socket = io({ transports: ["websocket", "polling"], query: { role: "admin", event_code: eventCode, scenario_id: scenarioId } });
 
 function fmt(value, digits = 2) {
   if (!Number.isFinite(value)) return "—";
@@ -39,6 +41,22 @@ function setControlStatus(text, tone = "") {
 
 function setPhase(phase) {
   if (phaseBadge) phaseBadge.textContent = `Phase: ${phase}`;
+}
+
+
+async function loadScenarioLabel() {
+  try {
+    const response = await fetch(`/scenarios/${encodeURIComponent(scenarioId)}.json`, { cache: "no-store" });
+    if (!response.ok) throw new Error("missing");
+    const scenario = await response.json();
+    if (adminScenarioLabel) {
+      adminScenarioLabel.textContent = `Scenario: ${scenario.name || scenarioId} (${scenario.id || scenarioId})`;
+    }
+  } catch {
+    if (adminScenarioLabel) {
+      adminScenarioLabel.textContent = `Scenario: ${scenarioId} (not found)`;
+    }
+  }
 }
 
 function ensureChart() {
@@ -200,6 +218,9 @@ document.getElementById("endBtn")?.addEventListener("click", () => runControl("e
 
 socket.on("phase", setPhase);
 socket.on("adminAssetSnapshot", (payload) => {
+  if (payload?.scenario && adminScenarioLabel) {
+    adminScenarioLabel.textContent = `Scenario: ${payload.scenario.name || payload.scenario.id} (${payload.scenario.id || scenarioId})`;
+  }
   assets = payload.assets || [];
   assetMap = new Map(assets.map((asset) => [asset.id, asset]));
   renderTabs();
@@ -224,6 +245,11 @@ socket.on("adminAssetTick", (payload) => {
   renderAssets();
 });
 
+socket.on("scenarioError", (payload) => {
+  setControlStatus(payload?.message || "Scenario not found. Launch from Mint.", "error");
+});
+
+await loadScenarioLabel();
 await validateToken();
 await fetchPlayers();
 setInterval(fetchPlayers, 5000);
