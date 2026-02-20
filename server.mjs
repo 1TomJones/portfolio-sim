@@ -27,8 +27,6 @@ app.get("/health", (_req, res) => res.status(200).json({ ok: true }));
 
 app.get("/app-config.js", (_req, res) => {
   const config = {
-    VITE_BACKEND_URL: process.env.VITE_BACKEND_URL || "",
-    VITE_MINT_URL: process.env.VITE_MINT_URL || process.env.VITE_MINT_SITE_URL || "",
     NODE_ENV: process.env.NODE_ENV || "development",
   };
   res.type("application/javascript");
@@ -37,8 +35,6 @@ app.get("/app-config.js", (_req, res) => {
 
 const PORT = process.env.PORT || 10000;
 const DEFAULT_CASH = 100000;
-const backendUrl = process.env.VITE_BACKEND_URL || "";
-
 const scenariosPath = path.join(__dirname, "scenarios");
 const metadataPath = path.join(__dirname, "public", "meta", "scenarios.json");
 const fallbackScenarioId = process.env.DEFAULT_SCENARIO_ID || "global-macro";
@@ -665,7 +661,7 @@ io.on("connection", (socket) => {
 
   if (!scenarioActivation.ok) {
     socket.emit("scenarioError", {
-      message: scenarioActivation.reason === "not-found" ? "Scenario not found. Launch from Mint." : "Scenario is already locked for this event.",
+      message: scenarioActivation.reason === "not-found" ? "Scenario not found." : "Scenario is already locked for this event.",
     });
   }
 
