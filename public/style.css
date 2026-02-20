@@ -155,6 +155,18 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .lower-panels .panel{height:100%;min-height:0}
 .trade-card{grid-column:1;grid-row:1;display:flex;flex-direction:column;gap:8px;min-height:0}
 .placeholder-card{display:flex;flex-direction:column;gap:8px;min-height:0;border:1px dashed rgba(109,168,255,0.35);background:rgba(109,168,255,0.06)}
+.macro-panel{border-style:solid;background:rgba(255,255,255,0.02)}
+.macro-body{display:flex;flex-direction:column;gap:8px;overflow-y:auto;min-height:0;flex:1}
+.macro-item{display:flex;flex-direction:column;gap:5px;padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);font-size:0.82rem}
+.macro-status{font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.macro-status.expected{color:#8bc2ff}
+.macro-status.actual{color:#9ef0bb}
+.macro-item.flash-alert{border-color:rgba(255,92,92,0.7);background:rgba(255,92,92,0.16);animation:macro-flash 0.55s ease-in-out infinite}
+
+@keyframes macro-flash{
+  0%,100%{opacity:1}
+  50%{opacity:0.5}
+}
 
 .trade-card{gap:6px;padding:8px 10px 10px}
 .trade-card input{padding:6px 8px;font-size:0.84rem}

@@ -18,6 +18,7 @@ const runErrorTitle = runErrorView?.querySelector("h2");
 const runErrorDetail = runErrorView?.querySelector("p.muted");
 const scenarioLabel = document.getElementById("scenarioLabel");
 const newsFeed = document.getElementById("newsFeed");
+const macroFeed = document.getElementById("macroFeed");
 const joinView = document.getElementById("joinView");
 const waitView = document.getElementById("waitView");
 const gameView = document.getElementById("gameView");
@@ -56,6 +57,8 @@ let highestEquity = availableCash;
 let maxDrawdown = 0;
 let currentPhase = "lobby";
 let hasJoined = false;
+let macroEvents = [];
+let currentTick = 0;
 
 function show(node) {
   if (node) node.classList.remove("hidden");
@@ -92,6 +95,45 @@ function pushNewsItem(headline, tick) {
   item.innerHTML = `<strong>T+${tick ?? "—"}s</strong><span class="muted">${headline}</span>`;
   newsFeed.prepend(item);
   while (newsFeed.children.length > 6) newsFeed.removeChild(newsFeed.lastElementChild);
+}
+
+function renderMacroEvents() {
+  if (!macroFeed) return;
+  macroFeed.innerHTML = "";
+
+  const sorted = [...macroEvents].sort((a, b) => {
+    const aTick = a.status === "actual" ? a.actualTick : a.expectationTick;
+    const bTick = b.status === "actual" ? b.actualTick : b.expectationTick;
+    return bTick - aTick;
+  });
+
+  if (!sorted.length) {
+    const placeholder = document.createElement("div");
+    placeholder.className = "macro-item";
+    placeholder.innerHTML = `<strong>Calendar feed</strong><span class="muted">Waiting for the first expectation release...</span>`;
+    macroFeed.appendChild(placeholder);
+    return;
+  }
+
+  sorted.forEach((event) => {
+    const item = document.createElement("div");
+    item.className = "macro-item";
+
+    const flashWindow = event.status === "expected" && Number(event.actualTick) - Number(currentTick) <= 10 && Number(event.actualTick) - Number(currentTick) >= 0;
+    if (flashWindow) item.classList.add("flash-alert");
+
+    const statusLine =
+      event.status === "actual"
+        ? `<span class="macro-status actual">Actual (tick ${event.actualTick})</span><span>${event.actual}</span>`
+        : `<span class="macro-status expected">Expected (tick ${event.expectationTick})</span><span>${event.expected}</span>`;
+
+    item.innerHTML = `<strong>${event.label}</strong>${statusLine}`;
+    macroFeed.appendChild(item);
+  });
+
+  while (macroFeed.children.length > 8) {
+    macroFeed.removeChild(macroFeed.lastElementChild);
+  }
 }
 
 function formatNumber(value, digits = 2) {
@@ -428,6 +470,12 @@ socket.on("portfolio", (payload) => {
 
 socket.on("news", (payload) => {
   pushNewsItem(payload?.headline, payload?.tick);
+});
+
+socket.on("macroEvents", (payload) => {
+  currentTick = Number(payload?.tick || 0);
+  macroEvents = Array.isArray(payload?.events) ? payload.events : [];
+  renderMacroEvents();
 });
 
 socket.on("roster", (payload) => {

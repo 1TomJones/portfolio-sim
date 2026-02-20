@@ -185,12 +185,37 @@ function createSimulationState(scenarioId) {
     assets: (scenario.assets || []).map((asset) => createAssetState(asset, simCfg)),
     news: [...(scenario.news || [])].sort((a, b) => Number(a.tick || 0) - Number(b.tick || 0)),
     newsCursor: 0,
+    macroEvents: [...(scenario.macroEvents || [])]
+      .map((event) => ({
+        ...event,
+        expectationTick: Number(event.expectationTick || 0),
+        actualTick: Number(event.actualTick || 0),
+      }))
+      .sort((a, b) => Number(a.expectationTick || 0) - Number(b.expectationTick || 0)),
+    macroExpectationCursor: 0,
+    releasedMacro: [],
     assetImpacts: {},
     tick: 0,
     phase: "lobby",
     eventCode: null,
     tickTimer: null,
     durationTicks,
+  };
+}
+
+function macroPayload() {
+  return {
+    events: sim.releasedMacro,
+    upcoming: sim.macroEvents.filter((event) => event.actualTick >= sim.tick).map((event) => ({
+      id: event.id,
+      label: event.label,
+      expectationTick: event.expectationTick,
+      actualTick: event.actualTick,
+      expected: event.expected,
+      actual: event.actual,
+      status: sim.tick >= event.actualTick ? "actual" : sim.tick >= event.expectationTick ? "expected" : "upcoming",
+    })),
+    tick: sim.tick,
   };
 }
 
@@ -423,6 +448,35 @@ function applyNewsIfAny() {
   }
 }
 
+function applyMacroEventIfAny() {
+  while (sim.macroExpectationCursor < sim.macroEvents.length) {
+    const event = sim.macroEvents[sim.macroExpectationCursor];
+    if (event.expectationTick > sim.tick) break;
+
+    const released = {
+      id: event.id,
+      label: event.label,
+      expectationTick: event.expectationTick,
+      actualTick: event.actualTick,
+      expected: event.expected,
+      actual: event.actual,
+      status: sim.tick >= event.actualTick ? "actual" : "expected",
+      tick: sim.tick,
+    };
+
+    sim.releasedMacro.unshift(released);
+    sim.releasedMacro = sim.releasedMacro.slice(0, 24);
+    sim.macroExpectationCursor += 1;
+  }
+
+  for (let i = 0; i < sim.releasedMacro.length; i += 1) {
+    const event = sim.releasedMacro[i];
+    if (event.status === "expected" && sim.tick >= event.actualTick) {
+      sim.releasedMacro[i] = { ...event, status: "actual", tick: sim.tick };
+    }
+  }
+}
+
 function evolveFactors() {
   const commonRisk = (Math.random() - 0.5) * sim.simCfg.baseNoise;
   for (const [name, factor] of Object.entries(sim.factors)) {
@@ -470,6 +524,7 @@ function stepTick() {
   if (sim.phase !== "running") return;
   sim.tick += 1;
   evolveFactors();
+  applyMacroEventIfAny();
   applyNewsIfAny();
 
   const updates = [];
@@ -538,6 +593,7 @@ function stepTick() {
   decayAssetImpacts();
 
   io.emit("assetTick", { assets: updates, tick: sim.tick });
+  io.emit("macroEvents", macroPayload());
 
   if (sim.durationTicks > 0 && sim.tick >= sim.durationTicks) {
     setPhase("ended");
@@ -690,9 +746,11 @@ io.on("connection", (socket) => {
     adminSockets.add(socket.id);
     socket.emit("phase", sim.phase);
     socket.emit("adminAssetSnapshot", { assets: initialAdminAssetPayload(), tickMs: sim.simCfg.tickMs, scenario: sim.scenario });
+    socket.emit("macroEvents", macroPayload());
   } else {
     socket.emit("phase", sim.phase);
     socket.emit("assetSnapshot", { assets: initialAssetPayload(), tickMs: sim.simCfg.tickMs, scenario: sim.scenario });
+    socket.emit("macroEvents", macroPayload());
   }
 
   socket.on("join", (payload, ack) => {
@@ -720,6 +778,7 @@ io.on("connection", (socket) => {
 
     broadcastRoster();
     ack?.({ ok: true, phase: sim.phase, assets: initialAssetPayload(), tickMs: sim.simCfg.tickMs, scenario: sim.scenario, ...rosterPayload() });
+    socket.emit("macroEvents", macroPayload());
     publishPortfolio(players.get(socket.id));
   });
 

@@ -5,5 +5,12 @@
     "description": "Baseline scenario loaded by admin before start.",
     "duration_seconds": 300,
     "version": "2.0.0"
+  },
+  {
+    "id": "macro-six-month",
+    "name": "Macro Expectations vs Actuals (6M)",
+    "description": "Six in-game months of macro expectation releases vs actual outcomes.",
+    "duration_seconds": 2160,
+    "version": "1.0.0"
   }
 ]
