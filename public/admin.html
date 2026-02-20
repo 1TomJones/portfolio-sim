@@ -20,24 +20,25 @@
   </header>
 
   <main class="admin-grid">
-    <section id="authState" class="panel span-3">Validating admin token…</section>
-
-    <section id="adminMain" class="span-3 hidden">
+    <section id="adminMain" class="span-3">
       <div class="admin-grid">
         <section class="panel">
           <div class="panel-header"><h2>Event Controls</h2></div>
           <div class="panel-body">
+            <div class="form-row form-row-qty">
+              <label for="scenarioSelect">Scenario</label>
+              <select id="scenarioSelect"></select>
+            </div>
             <div class="control-row">
               <button id="startBtn">Start</button>
               <button id="pauseBtn" class="secondary">Pause</button>
-              <button id="resumeBtn" class="secondary">Resume</button>
               <button id="endBtn" class="danger">End</button>
             </div>
-            <p id="controlStatus" class="muted">Waiting for admin action.</p>
+            <p id="controlStatus" class="muted">Choose a scenario, then start/pause/end the simulation.</p>
           </div>
         </section>
 
-        <section class="panel span-2">
+        <section class="panel span-2 hidden">
           <div class="panel-header"><h2>Players</h2></div>
           <div class="panel-body">
             <table>

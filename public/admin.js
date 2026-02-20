@@ -1,14 +1,9 @@
 const query = new URLSearchParams(window.location.search);
-const eventCode = query.get("event_code") || query.get("event_id") || "";
-const adminToken = query.get("admin_token") || "";
-const scenarioId = query.get("scenario_id") || "";
-const backendUrl = import.meta.env?.VITE_BACKEND_URL || window.APP_CONFIG?.VITE_BACKEND_URL || "";
+const requestedScenarioId = query.get("scenario_id") || "";
 
 const TAB_ORDER = ["equities", "commodities", "bonds"];
 const TAB_LABELS = { equities: "Equities", commodities: "Commodities", bonds: "Bonds" };
 
-const authState = document.getElementById("authState");
-const adminMain = document.getElementById("adminMain");
 const phaseBadge = document.getElementById("adminPhaseBadge");
 const playersTbody = document.getElementById("playersTbody");
 const controlStatus = document.getElementById("controlStatus");
@@ -16,6 +11,7 @@ const assetTabs = document.getElementById("adminAssetTabs");
 const assetsList = document.getElementById("adminAssetsList");
 const selectedAssetLabel = document.getElementById("selectedAssetLabel");
 const adminScenarioLabel = document.getElementById("adminScenarioLabel");
+const scenarioSelect = document.getElementById("scenarioSelect");
 
 let activeTab = "equities";
 let selectedAssetId = null;
@@ -24,9 +20,9 @@ let assetMap = new Map();
 let chartApi = null;
 let priceSeries = null;
 let fairSeries = null;
-let authorized = false;
+let selectedScenarioId = "";
 
-const socket = io({ transports: ["websocket", "polling"], query: { role: "admin", event_code: eventCode, scenario_id: scenarioId } });
+const socket = io({ transports: ["websocket", "polling"], query: { role: "admin" } });
 
 function fmt(value, digits = 2) {
   if (!Number.isFinite(value)) return "—";
@@ -41,29 +37,6 @@ function setControlStatus(text, tone = "") {
 
 function setPhase(phase) {
   if (phaseBadge) phaseBadge.textContent = `Phase: ${phase}`;
-}
-
-
-async function loadScenarioLabel() {
-  if (!scenarioId) {
-    if (adminScenarioLabel) {
-      adminScenarioLabel.textContent = "Scenario: missing";
-    }
-    return;
-  }
-
-  try {
-    const response = await fetch(`/scenarios/${encodeURIComponent(scenarioId)}.json`, { cache: "no-store" });
-    if (!response.ok) throw new Error("missing");
-    const scenario = await response.json();
-    if (adminScenarioLabel) {
-      adminScenarioLabel.textContent = `Scenario: ${scenario.name || scenarioId} (${scenario.id || scenarioId})`;
-    }
-  } catch {
-    if (adminScenarioLabel) {
-      adminScenarioLabel.textContent = `Scenario: ${scenarioId} (not found)`;
-    }
-  }
 }
 
 function ensureChart() {
@@ -158,75 +131,92 @@ function updateChartAsset(asset) {
   }
 }
 
-async function validateToken() {
-  if (!backendUrl || !eventCode || !adminToken) {
-    authState.textContent = "Not authorized";
-    return;
-  }
-
+async function loadScenarios() {
   try {
-    const url = `${backendUrl}/api/admin/validate-token?event_code=${encodeURIComponent(eventCode)}&admin_token=${encodeURIComponent(adminToken)}`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error("unauthorized");
+    const response = await fetch("/api/scenarios", { cache: "no-store" });
+    if (!response.ok) throw new Error("no-scenarios");
     const payload = await response.json();
-    if (!payload?.ok) throw new Error("unauthorized");
+    const scenarios = payload?.scenarios || [];
 
-    authorized = true;
-    authState.classList.add("hidden");
-    adminMain.classList.remove("hidden");
+    if (!scenarioSelect) return;
+    scenarioSelect.innerHTML = "";
+
+    scenarios.forEach((scenario) => {
+      const option = document.createElement("option");
+      option.value = scenario.id || scenario.scenario_id;
+      option.textContent = `${scenario.name || scenario.id} (${scenario.id || scenario.scenario_id})`;
+      scenarioSelect.appendChild(option);
+    });
+
+    selectedScenarioId = requestedScenarioId || scenarios[0]?.id || scenarios[0]?.scenario_id || "";
+    if (selectedScenarioId) scenarioSelect.value = selectedScenarioId;
+    if (adminScenarioLabel) adminScenarioLabel.textContent = `Scenario: ${selectedScenarioId || "none selected"}`;
   } catch {
-    authState.textContent = "Not authorized";
+    setControlStatus("Unable to load scenarios.", "error");
   }
 }
 
-async function runControl(action, localPhase) {
-  if (!authorized || !backendUrl) return;
-  setControlStatus(`${action} requested...`);
+async function startScenario() {
+  selectedScenarioId = scenarioSelect?.value || selectedScenarioId;
+  if (!selectedScenarioId) {
+    setControlStatus("Choose a scenario first.", "error");
+    return;
+  }
+
+  setControlStatus("Starting scenario…");
   try {
-    const response = await fetch(`${backendUrl}/api/admin/events/${encodeURIComponent(eventCode)}/${action}`, {
+    const response = await fetch("/api/admin/start", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-admin-token": adminToken },
-      body: JSON.stringify({ admin_token: adminToken }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scenario_id: selectedScenarioId }),
+    });
+
+    if (!response.ok) throw new Error(`start-failed-${response.status}`);
+    setControlStatus("Scenario started.", "success");
+    if (adminScenarioLabel) adminScenarioLabel.textContent = `Scenario: ${selectedScenarioId}`;
+  } catch {
+    setControlStatus("Could not start scenario.", "error");
+  }
+}
+
+async function runControl(phase, label) {
+  setControlStatus(`${label} requested...`);
+  try {
+    const response = await fetch("/api/admin/phase", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phase }),
     });
 
     if (!response.ok) throw new Error(`failed-${response.status}`);
 
-    setControlStatus(`${action} confirmed`, "success");
-    setPhase(localPhase);
-    socket.emit("adminPhaseSync", { phase: localPhase });
+    setControlStatus(`${label} confirmed`, "success");
+    setPhase(phase);
+    socket.emit("adminPhaseSync", { phase });
   } catch {
-    setControlStatus(`${action} failed`, "error");
+    setControlStatus(`${label} failed`, "error");
   }
 }
 
-async function fetchPlayers() {
-  if (!authorized || !backendUrl) return;
-  try {
-    const response = await fetch(`${backendUrl}/api/events/${encodeURIComponent(eventCode)}/players`);
-    if (!response.ok) return;
-    const payload = await response.json();
-    const players = payload.players || [];
-
-    playersTbody.innerHTML = "";
-    players.forEach((player) => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${player.name || "—"}</td><td>${player.runId || "—"}</td><td>${player.joinedAt ? new Date(player.joinedAt).toLocaleString() : "—"}</td><td>${player.status || "active"}</td><td>${player.latestScore ?? "—"}</td>`;
-      playersTbody.appendChild(tr);
-    });
-  } catch {
-    // noop
-  }
+function fetchPlayers() {
+  const rows = [];
+  playersTbody.innerHTML = "";
+  rows.forEach((player) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${player.name || "—"}</td><td>${player.runId || "—"}</td><td>${player.joinedAt ? new Date(player.joinedAt).toLocaleString() : "—"}</td><td>${player.status || "active"}</td><td>${player.latestScore ?? "—"}</td>`;
+    playersTbody.appendChild(tr);
+  });
 }
 
-document.getElementById("startBtn")?.addEventListener("click", () => runControl("start", "running"));
-document.getElementById("pauseBtn")?.addEventListener("click", () => runControl("pause", "paused"));
-document.getElementById("resumeBtn")?.addEventListener("click", () => runControl("resume", "running"));
-document.getElementById("endBtn")?.addEventListener("click", () => runControl("end", "ended"));
+document.getElementById("startBtn")?.addEventListener("click", () => startScenario());
+document.getElementById("pauseBtn")?.addEventListener("click", () => runControl("paused", "Pause"));
+document.getElementById("endBtn")?.addEventListener("click", () => runControl("ended", "End"));
 
 socket.on("phase", setPhase);
 socket.on("adminAssetSnapshot", (payload) => {
   if (payload?.scenario && adminScenarioLabel) {
-    adminScenarioLabel.textContent = `Scenario: ${payload.scenario.name || payload.scenario.id} (${payload.scenario.id || scenarioId})`;
+    adminScenarioLabel.textContent = `Scenario: ${payload.scenario.name || payload.scenario.id} (${payload.scenario.id || ""})`;
+    if (scenarioSelect && payload.scenario.id) scenarioSelect.value = payload.scenario.id;
   }
   assets = payload.assets || [];
   assetMap = new Map(assets.map((asset) => [asset.id, asset]));
@@ -253,10 +243,8 @@ socket.on("adminAssetTick", (payload) => {
 });
 
 socket.on("scenarioError", (payload) => {
-  setControlStatus(payload?.message || "Scenario not found. Launch from Mint.", "error");
+  setControlStatus(payload?.message || "Scenario not found.", "error");
 });
 
-await loadScenarioLabel();
-await validateToken();
-await fetchPlayers();
-setInterval(fetchPlayers, 5000);
+await loadScenarios();
+fetchPlayers();

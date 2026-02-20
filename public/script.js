@@ -1,6 +1,6 @@
 const query = new URLSearchParams(window.location.search);
-const runId = query.get("run_id");
-const eventCode = query.get("event_code") || "";
+const runId = query.get("run_id") || `local-${Date.now()}`;
+const eventCode = query.get("event_code") || "local-event";
 const scenarioId = query.get("scenario_id") || "";
 
 const socket = io({
@@ -10,18 +10,12 @@ const socket = io({
   query: { role: "player", scenario_id: scenarioId, event_code: eventCode, run_id: runId || "" },
 });
 
-const backendUrl = import.meta.env?.VITE_BACKEND_URL || window.APP_CONFIG?.VITE_BACKEND_URL || "";
-const mintUrl = import.meta.env?.VITE_MINT_URL || window.APP_CONFIG?.VITE_MINT_URL || "";
-const isDebugSubmissionEnabled =
-  import.meta.env?.DEV ||
-  window.APP_CONFIG?.NODE_ENV !== "production" ||
-  query.get("debug_submit") === "1";
+const isDebugSubmissionEnabled = query.get("debug_submit") === "1";
 
 const TAB_ORDER = ["equities", "commodities", "bonds"];
 const TAB_LABELS = { equities: "Equities", commodities: "Commodities", bonds: "Bonds" };
 
 const runErrorView = document.getElementById("runErrorView");
-const mintHomeLink = document.getElementById("mintHomeLink");
 const runErrorTitle = runErrorView?.querySelector("h2");
 const runErrorDetail = runErrorView?.querySelector("p.muted");
 const scenarioLabel = document.getElementById("scenarioLabel");
@@ -336,7 +330,7 @@ function buildSubmissionPayload({ useSample = false } = {}) {
   const finalValue = Number((availableCash + totalPnlValue).toFixed(2));
 
   return {
-    runId,
+    runId: runId || "local-run",
     score,
     pnl,
     sharpe: null,
@@ -394,43 +388,14 @@ function setResultMessage(message) {
 
 async function submitResults(payload) {
   if (hasSubmittedRun) return;
-
-  if (!backendUrl) {
-    setResultMessage("Could not submit results: backend URL not configured.");
-    clearResultActions();
-    addResultButton("Retry", () => latestSubmissionPayload && submitResults(latestSubmissionPayload));
-    return;
-  }
-
   latestSubmissionPayload = payload;
-  setResultMessage("Submitting results…");
+  hasSubmittedRun = true;
+  setResultMessage("Simulation complete. Results are stored locally for this session.");
+  if (submitTestBtn) submitTestBtn.disabled = true;
   clearResultActions();
-
-  try {
-    const response = await fetch(`${backendUrl}/api/runs/submit`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (response.status === 409) {
-      hasSubmittedRun = true;
-      setResultMessage("Already submitted.");
-    } else if (!response.ok) {
-      throw new Error(`submit-failed-${response.status}`);
-    } else {
-      hasSubmittedRun = true;
-      setResultMessage("Results submitted ✅");
-    }
-
-    if (submitTestBtn) submitTestBtn.disabled = true;
-    clearResultActions();
-    addResultLink("View results on Mint", mintUrl ? `${mintUrl}/multiplayer/runs/${runId}` : "", { disabled: !mintUrl });
-  } catch {
-    setResultMessage("Could not submit results. Retry.");
-    clearResultActions();
-    addResultButton("Retry", () => latestSubmissionPayload && submitResults(latestSubmissionPayload));
-  }
+  addResultButton("Show payload", () => {
+    setResultMessage(`Result payload: ${JSON.stringify(payload)}`);
+  });
 }
 
 function submitLiveResults() {
@@ -448,20 +413,6 @@ function setPhase(phase) {
 
   if (currentPhase === "ended" || currentPhase === "finished" || currentPhase === "complete") {
     submitLiveResults();
-  }
-}
-
-async function pollEventStatus() {
-  if (!backendUrl || !eventCode || hasSubmittedRun) return;
-  try {
-    const response = await fetch(`${backendUrl}/api/events/${encodeURIComponent(eventCode)}`);
-    if (!response.ok) return;
-    const payload = await response.json();
-    if (["ended", "finished", "complete"].includes(String(payload?.status || payload?.phase || "").toLowerCase())) {
-      setPhase("ended");
-    }
-  } catch {
-    // optional polling endpoint
   }
 }
 
@@ -572,7 +523,7 @@ socket.on("news", (payload) => {
 });
 
 socket.on("scenarioError", (payload) => {
-  showLaunchError("Scenario not found. Launch from Mint.", payload?.message || "Scenario not found. Launch from Mint.");
+  showLaunchError("Scenario not found.", payload?.message || "Scenario not found.");
 });
 
 buyBtn?.addEventListener("click", () => handleOrder("buy"));
@@ -597,40 +548,16 @@ joinBtn?.addEventListener("click", () => {
   });
 });
 
-if (mintHomeLink) {
-  if (mintUrl) mintHomeLink.href = mintUrl;
-  else {
-    mintHomeLink.href = "#";
-    mintHomeLink.setAttribute("aria-disabled", "true");
-    mintHomeLink.classList.add("disabled");
-    mintHomeLink.addEventListener("click", (event) => event.preventDefault());
-  }
-}
-
 if (runIdLabel) runIdLabel.textContent = runId ? `Run: ${runId}` : "Run: missing";
 
 async function init() {
-  if (!scenarioId) {
-    showLaunchError("Missing scenario_id. Launch from Mint.", "This simulation must be opened from a Mint run link.");
-    return;
-  }
-
   const scenario = await validateScenario();
-  if (!scenario) {
-    showLaunchError("Scenario not found. Launch from Mint.", "Scenario not found. Launch from Mint.");
-    return;
-  }
-
   if (scenarioLabel) {
-    scenarioLabel.textContent = `${scenario.name || scenarioId} (${scenario.id || scenarioId})`;
+    if (scenario) scenarioLabel.textContent = `${scenario.name || scenario.id} (${scenario.id})`;
+    else scenarioLabel.textContent = "Scenario: server default";
   }
 
-  if (!runId) {
-    showLaunchError("Missing run_id. Please launch from Mint.", "This simulation must be opened from a Mint run link.");
-    return;
-  }
-
-  setResultMessage("Results will be submitted when the round ends.");
+  setResultMessage("Results are local to this simulation session.");
 
   if (submitTestBtn && isDebugSubmissionEnabled) {
     show(submitTestBtn);
@@ -638,7 +565,6 @@ async function init() {
   }
 
   socket.connect();
-  setInterval(pollEventStatus, 4000);
   updatePortfolioSummary();
 }
 
