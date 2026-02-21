@@ -87,16 +87,26 @@ function formatGameTimeFromTick(tick) {
 }
 
 function buildScenarioNewsTimeline() {
+  const majorNewsTicks = new Set(
+    (currentScenarioPayload?.news || [])
+      .filter((item) => Boolean(item?.major))
+      .map((item) => asNumber(item.tick, -1))
+      .filter((tick) => tick >= 0),
+  );
+
   const macroEntries = selectedScenarioNews.map((event) => {
     const impactPct = 0;
+    const actualTick = asNumber(event.actualTick);
+    const isMajor = majorNewsTicks.has(actualTick) || /major event/i.test(String(event.label || ""));
     return {
       id: `${event.id || event.label}-outcome`,
-      tick: asNumber(event.actualTick),
+      tick: actualTick,
       token: "Outcome",
       label: event.label || "Macro release",
       value: event.actual || "—",
       impactPct,
-      releaseTick: asNumber(event.actualTick),
+      isMajor,
+      releaseTick: actualTick,
     };
   });
 
@@ -107,6 +117,7 @@ function buildScenarioNewsTimeline() {
     label: item.headline || "News",
     value: item.headline || "—",
     impactPct: impactPctForNewsItem(item),
+    isMajor: Boolean(item?.major) || /major event/i.test(String(item?.headline || "")),
     releaseTick: asNumber(item.tick),
   }));
 
@@ -130,6 +141,7 @@ function renderAdminNewsTimeline() {
     const released = currentTick >= entry.releaseTick;
     item.className = `macro-item admin-news-item ${impactClass(entry.impactPct)}`;
     if (released) item.classList.add("released");
+    if (entry.isMajor) item.classList.add("major-admin-news-item");
 
     item.innerHTML = `<strong>${entry.label}</strong><span class="macro-status ${entry.token.toLowerCase()}">${entry.token} · Tick ${entry.tick} (${formatGameTimeFromTick(entry.tick)})</span><span>${entry.value}</span>`;
     adminNewsFeed.appendChild(item);
