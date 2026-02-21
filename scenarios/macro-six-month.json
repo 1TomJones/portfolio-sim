@@ -375,299 +375,635 @@
   ],
   "news": [
     {
-      "tick": 840,
-      "headline": "US CPI prints hotter than expected (3.1% vs 2.9% expected).",
+      "tick": 300,
+      "headline": "Early surveys show enterprise AI rollouts expanding beyond pilot stage",
       "decay_seconds": 180,
       "assetShocks": {
-        "idx-spx": -0.04,
-        "eq-nvda": -0.05,
-        "eq-msft": -0.05,
-        "eq-aapl": -0.05,
-        "eq-tsla": -0.06,
-        "eq-jpm": 0.02,
-        "cmd-gold": 0.03,
-        "cmd-wti": -0.02,
-        "cmd-brent": -0.02
+        "eq-nvda": 0.01,
+        "eq-msft": 0.005,
+        "idx-spx": 0.005
       }
     },
     {
-      "tick": 1440,
-      "headline": "US payrolls miss expectations (+110k vs +180k).",
+      "tick": 650,
+      "headline": "Large US insurer signs multi-year cloud and AI services agreement, sources say",
       "decay_seconds": 180,
       "assetShocks": {
-        "idx-spx": 0.04,
-        "eq-nvda": 0.05,
-        "eq-msft": 0.05,
-        "eq-aapl": 0.05,
-        "eq-jpm": -0.02,
-        "cmd-gold": 0.02,
-        "cmd-wti": 0.01,
-        "cmd-brent": 0.01
+        "eq-msft": 0.007,
+        "eq-amzn": 0.007,
+        "eq-goog": 0.004
+      }
+    },
+    {
+      "tick": 950,
+      "headline": "Apple supplier checks point to steady device build plans into next quarter",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "eq-aapl": 0.008,
+        "idx-spx": 0.003
+      }
+    },
+    {
+      "tick": 1250,
+      "headline": "Online retailers report stronger volumes; fulfilment costs continue to ease",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "eq-amzn": 0.008,
+        "idx-spx": 0.003
+      }
+    },
+    {
+      "tick": 1550,
+      "headline": "Industry data suggests data-centre buildout lifting power and fuel demand",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "cmd-wti": 0.006,
+        "cmd-brent": 0.006,
+        "eq-xom": 0.006,
+        "idx-ftse100": 0.003
+      }
+    },
+    {
+      "tick": 1800,
+      "headline": "Mega-cap tech firms signal larger AI spending updates at upcoming investor events",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "eq-nvda": 0.008,
+        "eq-msft": 0.004,
+        "idx-spx": 0.004
       }
     },
     {
       "tick": 2000,
-      "headline": "MAJOR EVENT: Mega-cap tech announces accelerated AI infrastructure spending; enterprise adoption accelerates.",
+      "headline": "MAJOR EVENT: AI investment cycle broadens as enterprise demand and spending guidance re-rate higher.",
       "decay_seconds": 220,
       "major": true,
       "assetShocks": {
-        "eq-nvda": 0.08,
-        "eq-msft": 0.04,
-        "eq-goog": 0.03,
-        "eq-amzn": 0.03,
-        "eq-aapl": 0.02,
-        "idx-spx": 0.02,
-        "idx-sx5e": 0.01,
-        "idx-nikkei": 0.01,
-        "cmd-gold": -0.01,
-        "cmd-silver": 0,
-        "cmd-wti": 0.01,
-        "cmd-brent": 0.01,
-        "eq-jpm": 0,
-        "eq-xom": 0.01
+        "idx-spx": 0.008,
+        "eq-nvda": 0.01,
+        "eq-msft": 0.006,
+        "eq-goog": 0.004
       }
     },
     {
-      "tick": 4800,
-      "headline": "Fed holds rates; expected 25bp cut fails to materialize.",
+      "tick": 2250,
+      "headline": "Analysts lift AI server shipment estimates after channel checks",
       "decay_seconds": 180,
       "assetShocks": {
-        "idx-spx": -0.06,
-        "eq-nvda": -0.07,
-        "eq-msft": -0.07,
-        "eq-tsla": -0.08,
-        "eq-jpm": 0.04,
-        "cmd-gold": 0.04,
-        "cmd-wti": -0.03,
-        "cmd-brent": -0.03
+        "eq-nvda": 0.01,
+        "eq-msft": 0.005,
+        "eq-goog": 0.004,
+        "idx-spx": 0.004
+      }
+    },
+    {
+      "tick": 2600,
+      "headline": "JPMorgan says trading and investment banking activity remains strong; credit losses stable",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "eq-jpm": 0.008,
+        "idx-spx": 0.002
+      }
+    },
+    {
+      "tick": 3000,
+      "headline": "Chip lead times extend at the margin, supply chain contacts say",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "eq-nvda": -0.005,
+        "eq-aapl": -0.003
+      }
+    },
+    {
+      "tick": 3350,
+      "headline": "Exxon highlights capital discipline and shareholder returns in update",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "eq-xom": 0.005,
+        "idx-ftse100": 0.003
+      }
+    },
+    {
+      "tick": 3800,
+      "headline": "Several firms cite measurable productivity gains from AI tooling in updates",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "idx-spx": 0.008,
+        "eq-msft": 0.005,
+        "eq-goog": 0.004
+      }
+    },
+    {
+      "tick": 4100,
+      "headline": "US consumer spending appears resilient, with travel and services holding up",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "eq-amzn": 0.009,
+        "eq-jpm": 0.004,
+        "idx-spx": 0.004
+      }
+    },
+    {
+      "tick": 4400,
+      "headline": "Tesla expands pilot coverage for autonomy features, documents show",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "eq-tsla": 0.008,
+        "idx-spx": 0.002
+      }
+    },
+    {
+      "tick": 4700,
+      "headline": "Taiwan officials report increased military activity nearby; no disruption reported",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "cmd-gold": 0.005,
+        "eq-nvda": -0.003
       }
     },
     {
       "tick": 5000,
-      "headline": "MAJOR EVENT: Companies report early AI productivity gains; consumer demand holds up; soft-landing narrative strengthens.",
+      "headline": "MAJOR EVENT: Soft-landing narrative strengthens as productivity and demand data surprise to the upside.",
       "decay_seconds": 220,
       "major": true,
       "assetShocks": {
-        "idx-spx": 0.03,
-        "eq-aapl": 0.03,
-        "eq-msft": 0.02,
-        "eq-amzn": 0.02,
-        "eq-goog": 0.02,
-        "eq-nvda": 0.03,
-        "eq-tsla": 0.02,
-        "eq-jpm": 0.02,
-        "idx-sx5e": 0.02,
-        "idx-ftse100": 0.01,
-        "idx-nikkei": 0.01,
-        "cmd-gold": -0.02,
-        "cmd-silver": -0.01,
-        "cmd-wti": 0.01,
-        "cmd-brent": 0.01,
-        "eq-xom": 0.02
+        "idx-spx": 0.009,
+        "eq-msft": 0.006,
+        "eq-goog": 0.005,
+        "eq-amzn": 0.005,
+        "eq-aapl": 0.005
       }
     },
     {
-      "tick": 5400,
-      "headline": "China GDP disappoints at 4.2% vs 4.8% expected.",
+      "tick": 5250,
+      "headline": "Corporates raise efficiency targets; capex plans revised modestly higher",
       "decay_seconds": 180,
       "assetShocks": {
-        "idx-csi300": -0.06,
-        "idx-spx": -0.02,
-        "cmd-wti": -0.04,
-        "cmd-brent": -0.04,
-        "eq-nvda": -0.03,
-        "cmd-gold": 0.02
+        "idx-spx": 0.008,
+        "eq-aapl": 0.006,
+        "eq-msft": 0.006,
+        "eq-goog": 0.005,
+        "eq-amzn": 0.005
       }
     },
     {
-      "tick": 7800,
-      "headline": "ECB cuts rates after hold expectations.",
+      "tick": 5600,
+      "headline": "Energy demand outlook revised higher by industry group",
       "decay_seconds": 180,
       "assetShocks": {
-        "idx-sx5e": 0.05,
-        "idx-spx": 0.02,
-        "cmd-gold": 0.01,
-        "cmd-wti": 0.02,
-        "cmd-brent": 0.02
+        "cmd-brent": 0.008,
+        "cmd-wti": 0.008,
+        "eq-xom": 0.008,
+        "idx-ftse100": 0.004
+      }
+    },
+    {
+      "tick": 6000,
+      "headline": "Nvidia suppliers report AI chip orders remain elevated; lead times extend into next quarter",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "eq-nvda": 0.007,
+        "idx-spx": 0.002
+      }
+    },
+    {
+      "tick": 6450,
+      "headline": "Some hardware shipments delayed amid component tightness, sources say",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "eq-aapl": -0.003,
+        "eq-nvda": -0.003
+      }
+    },
+    {
+      "tick": 6900,
+      "headline": "Prime brokers warn positioning crowded in US mega-cap tech; some funds reduce exposure",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "idx-spx": -0.004,
+        "eq-nvda": -0.006,
+        "eq-msft": -0.004,
+        "eq-goog": -0.004
+      }
+    },
+    {
+      "tick": 7300,
+      "headline": "Insurers raise premiums for select Asia shipping routes amid heightened tensions",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "idx-spx": -0.008,
+        "eq-nvda": -0.008,
+        "cmd-gold": 0.008
+      }
+    },
+    {
+      "tick": 7600,
+      "headline": "Electronics manufacturers warn of possible rerouting delays if tensions persist",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "eq-aapl": -0.006,
+        "eq-nvda": -0.008,
+        "eq-msft": -0.003
+      }
+    },
+    {
+      "tick": 7900,
+      "headline": "Crude markets price higher disruption risk on key seaborne routes",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "cmd-brent": 0.012,
+        "cmd-wti": 0.006,
+        "eq-xom": 0.004,
+        "cmd-gold": 0.004
+      }
+    },
+    {
+      "tick": 8300,
+      "headline": "US officials consider tighter AI chip export rules to China, report says",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "eq-nvda": -0.01,
+        "idx-spx": -0.005,
+        "idx-nikkei": -0.005
       }
     },
     {
       "tick": 8700,
-      "headline": "US CPI cools to 2.7% vs 3.0% expected.",
+      "headline": "Risk controls tightened at several funds as geopolitical uncertainty rises, sources say",
       "decay_seconds": 180,
       "assetShocks": {
-        "idx-spx": 0.05,
-        "eq-nvda": 0.06,
-        "eq-msft": 0.06,
-        "eq-aapl": 0.06,
-        "eq-jpm": -0.03,
-        "cmd-gold": -0.02
+        "idx-spx": -0.007,
+        "cmd-gold": 0.007
       }
     },
     {
       "tick": 9000,
-      "headline": "MAJOR EVENT: China announces major military drills near Taiwan; markets price semiconductor supply chain disruption risk.",
+      "headline": "MAJOR EVENT: Geopolitical shock escalates supply-chain and market-risk repricing across regions.",
       "decay_seconds": 240,
       "major": true,
       "assetShocks": {
-        "eq-nvda": -0.1,
-        "idx-spx": -0.05,
-        "idx-sx5e": -0.04,
-        "idx-nikkei": -0.04,
-        "idx-csi300": -0.05,
-        "eq-aapl": -0.04,
-        "eq-msft": -0.03,
-        "eq-goog": -0.03,
-        "eq-amzn": -0.02,
-        "eq-tsla": -0.02,
-        "cmd-gold": 0.06,
-        "cmd-silver": 0.03,
-        "cmd-brent": 0.03,
-        "cmd-wti": 0.03,
-        "eq-xom": 0.02,
-        "idx-ftse100": 0.005,
-        "eq-jpm": 0.01
+        "idx-spx": -0.01,
+        "eq-nvda": -0.012,
+        "eq-aapl": -0.008,
+        "cmd-gold": 0.01,
+        "cmd-brent": 0.008
       }
     },
     {
-      "tick": 11700,
-      "headline": "UK CPI lands in line at 3.2%; cross-asset response muted.",
-      "decay_seconds": 120,
+      "tick": 9300,
+      "headline": "Major manufacturers flag potential delivery slippage in internal memos, report says",
+      "decay_seconds": 180,
       "assetShocks": {
-        "idx-ftse100": 0.005
+        "eq-aapl": -0.008,
+        "eq-nvda": -0.01,
+        "idx-spx": -0.006,
+        "cmd-gold": 0.006
+      }
+    },
+    {
+      "tick": 9600,
+      "headline": "US crude inventories jump; Cushing storage nears capacity, pressuring WTI",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "cmd-wti": -0.06,
+        "cmd-brent": -0.01,
+        "eq-xom": -0.01
+      }
+    },
+    {
+      "tick": 9950,
+      "headline": "Tanker rates rise and shipping risk premiums increase, keeping Brent supported vs WTI",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "cmd-brent": 0.02,
+        "cmd-wti": -0.01
+      }
+    },
+    {
+      "tick": 10300,
+      "headline": "Eurozone manufacturers report weaker order flows in preliminary surveys",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "idx-sx5e": -0.008,
+        "idx-nikkei": -0.006,
+        "idx-spx": -0.003
+      }
+    },
+    {
+      "tick": 10650,
+      "headline": "Demand for physical bullion rises in Asia amid uncertainty, dealers say",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "cmd-gold": 0.01,
+        "cmd-silver": 0.006
+      }
+    },
+    {
+      "tick": 11000,
+      "headline": "Bankers flag mega-IPO pipeline led by SpaceX; investors prepare cash for allocation",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "idx-spx": -0.005,
+        "eq-nvda": -0.006,
+        "eq-msft": -0.004
+      }
+    },
+    {
+      "tick": 11300,
+      "headline": "US shale output climbs; domestic supply remains ample",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "cmd-wti": -0.035,
+        "cmd-brent": -0.008
+      }
+    },
+    {
+      "tick": 11600,
+      "headline": "US refinery outages disrupt local demand; WTI swings on shifting domestic balances",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "cmd-wti": -0.015,
+        "cmd-brent": 0.003
+      }
+    },
+    {
+      "tick": 11850,
+      "headline": "SpaceX IPO preparations advance; bankers circulate early terms, sources say",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "idx-spx": -0.006,
+        "eq-nvda": -0.007,
+        "eq-msft": -0.004
       }
     },
     {
       "tick": 12000,
-      "headline": "MAJOR EVENT: SpaceX IPO announced; valuation chatter drives liquidity rotation out of mega-cap tech.",
+      "headline": "MAJOR EVENT: SpaceX IPO launch triggers broad liquidity rotation from mega-cap tech.",
       "decay_seconds": 220,
       "major": true,
       "assetShocks": {
-        "idx-spx": -0.02,
-        "eq-nvda": -0.03,
-        "eq-msft": -0.02,
-        "eq-goog": -0.02,
-        "eq-amzn": -0.01,
-        "eq-aapl": -0.01,
-        "eq-tsla": -0.01,
-        "cmd-gold": 0.02,
-        "cmd-silver": 0.01,
-        "cmd-brent": 0.01,
-        "cmd-wti": 0.01,
-        "eq-xom": 0.01,
-        "eq-jpm": 0,
-        "idx-csi300": -0.01,
-        "idx-sx5e": -0.01,
-        "idx-nikkei": -0.01
+        "idx-spx": -0.008,
+        "eq-nvda": -0.01,
+        "eq-msft": -0.006,
+        "eq-goog": -0.005,
+        "cmd-gold": 0.004
+      }
+    },
+    {
+      "tick": 12300,
+      "headline": "Funds sell mega-cap tech to free capital for SpaceX IPO allocation, traders say",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "eq-nvda": -0.01,
+        "eq-msft": -0.006,
+        "eq-goog": -0.006,
+        "idx-spx": -0.006
       }
     },
     {
       "tick": 12600,
-      "headline": "BOJ unexpectedly tightens policy.",
+      "headline": "Brent holds firmer than WTI as seaborne risk persists, traders say",
       "decay_seconds": 180,
       "assetShocks": {
-        "idx-nikkei": -0.05,
-        "idx-spx": -0.01,
-        "cmd-gold": 0.02
+        "cmd-brent": 0.01,
+        "cmd-wti": -0.015
       }
     },
     {
-      "tick": 15300,
-      "headline": "US GDP beats at 2.8% vs 2.0% expected.",
+      "tick": 12900,
+      "headline": "Officials signal talks could be scheduled in coming weeks; no timetable confirmed",
       "decay_seconds": 180,
       "assetShocks": {
-        "idx-spx": -0.03,
-        "eq-jpm": 0.03,
-        "eq-nvda": -0.04,
-        "eq-msft": -0.04,
-        "eq-aapl": -0.04,
-        "cmd-wti": 0.02,
-        "cmd-brent": 0.02
+        "idx-spx": 0.004,
+        "cmd-gold": -0.004,
+        "eq-nvda": 0.003
+      }
+    },
+    {
+      "tick": 13200,
+      "headline": "SpaceX demand indications strong in early conversations, sources say",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "idx-spx": 0.002,
+        "cmd-gold": -0.002
+      }
+    },
+    {
+      "tick": 13600,
+      "headline": "US inventory report mixed: crude build slows but storage still high; WTI bounces then fades",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "cmd-wti": 0.008,
+        "cmd-brent": 0.0
+      }
+    },
+    {
+      "tick": 14100,
+      "headline": "OPEC delegates indicate no immediate policy shift under discussion, sources say",
+      "decay_seconds": 120,
+      "assetShocks": {}
+    },
+    {
+      "tick": 14600,
+      "headline": "Freight costs ease as shipping routes normalize; delivery times improve",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "idx-spx": 0.008,
+        "eq-aapl": 0.006,
+        "eq-nvda": 0.008,
+        "eq-amzn": 0.005
+      }
+    },
+    {
+      "tick": 15000,
+      "headline": "Chip component availability improves in recent checks, suppliers say",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "eq-nvda": 0.01,
+        "eq-aapl": 0.005,
+        "eq-msft": 0.004
+      }
+    },
+    {
+      "tick": 15400,
+      "headline": "US crude stocks draw down; Cushing utilization falls from recent highs",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "cmd-wti": 0.04,
+        "cmd-brent": 0.01
+      }
+    },
+    {
+      "tick": 15800,
+      "headline": "China announces new stimulus package to support consumers and industry; details due next week",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "idx-csi300": 0.012,
+        "idx-spx": 0.003,
+        "idx-sx5e": 0.003
       }
     },
     {
       "tick": 16200,
-      "headline": "China industrial production misses (+3.2% vs +4.5%).",
+      "headline": "Global fund managers rotate back into equities as geopolitical risk premium falls",
       "decay_seconds": 180,
       "assetShocks": {
-        "idx-csi300": -0.05,
-        "cmd-wti": -0.03,
-        "cmd-brent": -0.03,
-        "eq-nvda": -0.02
+        "idx-spx": 0.008,
+        "eq-goog": 0.006,
+        "eq-msft": 0.006,
+        "eq-amzn": 0.005
+      }
+    },
+    {
+      "tick": 16600,
+      "headline": "Diplomatic engagement expands; multiple meetings planned, officials say",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "cmd-gold": -0.012,
+        "idx-spx": 0.008,
+        "eq-nvda": 0.008
       }
     },
     {
       "tick": 17000,
-      "headline": "MAJOR EVENT: Taiwan diplomatic talks begin and military drills scale down; supply chain disruption risk fades.",
+      "headline": "MAJOR EVENT: De-escalation momentum drives recovery trade and cross-asset risk rebound.",
       "decay_seconds": 220,
       "major": true,
       "assetShocks": {
-        "eq-nvda": 0.08,
-        "idx-spx": 0.05,
-        "eq-aapl": 0.04,
-        "eq-msft": 0.04,
-        "eq-goog": 0.04,
-        "eq-amzn": 0.03,
-        "eq-tsla": 0.03,
-        "idx-sx5e": 0.04,
-        "idx-nikkei": 0.04,
-        "idx-csi300": 0.03,
-        "cmd-gold": -0.05,
-        "cmd-silver": -0.03,
-        "cmd-brent": -0.02,
-        "cmd-wti": -0.02,
-        "eq-xom": -0.01,
-        "eq-jpm": 0.01
+        "idx-spx": 0.01,
+        "eq-nvda": 0.01,
+        "eq-aapl": 0.008,
+        "eq-msft": 0.007,
+        "cmd-gold": -0.008
+      }
+    },
+    {
+      "tick": 17200,
+      "headline": "Manufacturers reaffirm outlooks as disruption concerns fade",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "idx-spx": 0.008,
+        "eq-aapl": 0.006,
+        "eq-nvda": 0.008,
+        "eq-msft": 0.005
+      }
+    },
+    {
+      "tick": 17500,
+      "headline": "US crude transport bottlenecks ease; WTI discount to Brent narrows, traders say",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "cmd-wti": 0.025,
+        "cmd-brent": 0.005,
+        "eq-xom": 0.004
+      }
+    },
+    {
+      "tick": 17800,
+      "headline": "Physical demand for gold cools as safe-haven buying eases",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "cmd-gold": -0.01,
+        "cmd-silver": -0.006
+      }
+    },
+    {
+      "tick": 18200,
+      "headline": "US unveils \u201cSpace Infrastructure\u201d initiative; AI, cloud and satellite networks named as priorities",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "idx-spx": 0.006,
+        "eq-nvda": 0.006,
+        "eq-msft": 0.004,
+        "eq-goog": 0.003
+      }
+    },
+    {
+      "tick": 18600,
+      "headline": "Private funding rounds accelerate in space and AI infrastructure firms",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "idx-spx": 0.007,
+        "eq-tsla": 0.006,
+        "eq-nvda": 0.007
       }
     },
     {
       "tick": 18900,
-      "headline": "Fed delivers 50bp cut vs 25bp expected in finale.",
-      "decay_seconds": 220,
+      "headline": "Energy demand outlook lifted on industrial and transport activity",
+      "decay_seconds": 180,
       "assetShocks": {
-        "idx-spx": 0.08,
-        "eq-nvda": 0.1,
-        "eq-msft": 0.1,
-        "eq-aapl": 0.1,
-        "eq-tsla": 0.12,
-        "eq-jpm": -0.03,
-        "cmd-gold": 0.03,
-        "cmd-wti": 0.04,
-        "cmd-brent": 0.04
+        "cmd-wti": 0.008,
+        "cmd-brent": 0.008,
+        "eq-xom": 0.006
+      }
+    },
+    {
+      "tick": 19200,
+      "headline": "Sources: US government to award major space-network contracts to tech giants and partners",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "idx-spx": 0.006,
+        "eq-nvda": 0.005,
+        "eq-msft": 0.004,
+        "cmd-gold": -0.003
       }
     },
     {
       "tick": 19500,
-      "headline": "MAJOR EVENT: US launches a major space initiative and contract wave, intensifying the space race with China.",
+      "headline": "MAJOR EVENT: US contract awards ignite final risk-on rally in space, AI, and cloud leaders.",
       "decay_seconds": 240,
       "major": true,
       "assetShocks": {
-        "idx-spx": 0.04,
-        "eq-nvda": 0.04,
-        "eq-msft": 0.03,
-        "eq-goog": 0.02,
-        "eq-amzn": 0.02,
-        "eq-tsla": 0.03,
-        "eq-aapl": 0.01,
-        "idx-sx5e": 0.02,
-        "idx-ftse100": 0.01,
-        "idx-nikkei": 0.02,
-        "idx-csi300": -0.01,
-        "cmd-gold": -0.02,
-        "cmd-silver": -0.01,
-        "cmd-brent": 0.01,
-        "cmd-wti": 0.01,
-        "eq-xom": 0.01,
-        "eq-jpm": 0.01
+        "idx-spx": 0.01,
+        "eq-nvda": 0.009,
+        "eq-msft": 0.007,
+        "eq-goog": 0.006,
+        "eq-tsla": 0.005
       }
     },
     {
-      "tick": 20500,
-      "headline": "Analysts debate whether easing momentum can offset weakening global manufacturing.",
-      "factorShocks": {
-        "globalRisk": 0.001,
-        "chinaGrowth": -0.001
+      "tick": 19800,
+      "headline": "US awards first wave of space-network and AI data contracts to Microsoft, Google and partners",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "idx-spx": 0.008,
+        "eq-nvda": 0.007,
+        "eq-msft": 0.005,
+        "eq-goog": 0.004
       }
+    },
+    {
+      "tick": 20100,
+      "headline": "Cushing storage pressure eases as inventories draw down; WTI discount to Brent shrinks",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "cmd-wti": 0.018,
+        "cmd-brent": 0.003
+      }
+    },
+    {
+      "tick": 20400,
+      "headline": "Big Tech reports strong demand for AI compute and cloud services in customer updates",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "idx-spx": 0.008,
+        "eq-aapl": 0.005,
+        "eq-amzn": 0.006,
+        "eq-tsla": 0.007
+      }
+    },
+    {
+      "tick": 20700,
+      "headline": "Officials caution timeline for full rollout remains subject to approvals",
+      "decay_seconds": 120,
+      "assetShocks": {}
+    },
+    {
+      "tick": 21000,
+      "headline": "Investors position ahead of upcoming Big Tech updates after strong month for equities",
+      "decay_seconds": 120,
+      "assetShocks": {}
     }
   ]
 }
