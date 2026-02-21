@@ -225,7 +225,7 @@ function renderAssets() {
   const appendAsset = (asset) => {
     const row = document.createElement("button");
     row.type = "button";
-    row.className = "asset-row";
+    row.className = "asset-row admin-asset-row";
     row.dataset.asset = asset.id;
     row.innerHTML = `<span class="asset-symbol">${asset.symbol}</span><span class="asset-price">${fmt(asset.price, asset.isYield ? 3 : 2)}</span><span class="asset-position">FV</span><span class="asset-pnl">${fmt(asset.fairValue, asset.isYield ? 3 : 2)}</span>`;
     row.addEventListener("click", () => selectAsset(asset.id));
