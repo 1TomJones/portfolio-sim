@@ -45,41 +45,12 @@
   },
   "assets": [
     {
-      "id": "eq-nvda",
-      "symbol": "NVDA",
-      "name": "NVIDIA",
-      "category": "equities",
-      "group": "stocks",
-      "startPrice": 900,
-      "priceDecimals": 2,
-      "factors": {
-        "globalRisk": 0.85,
-        "rates": -0.45,
-        "usd": -0.2,
-        "chinaGrowth": 0.25
-      }
-    },
-    {
-      "id": "eq-msft",
-      "symbol": "MSFT",
-      "name": "Microsoft",
-      "category": "equities",
-      "group": "stocks",
-      "startPrice": 410,
-      "priceDecimals": 2,
-      "factors": {
-        "globalRisk": 0.75,
-        "rates": -0.35,
-        "usd": -0.2
-      }
-    },
-    {
       "id": "eq-aapl",
       "symbol": "AAPL",
-      "name": "Apple",
+      "name": "Apple Inc.",
       "category": "equities",
       "group": "stocks",
-      "startPrice": 185,
+      "startPrice": 219,
       "priceDecimals": 2,
       "factors": {
         "globalRisk": 0.72,
@@ -89,12 +60,41 @@
       }
     },
     {
-      "id": "eq-tsla",
-      "symbol": "TSLA",
-      "name": "Tesla",
+      "id": "eq-msft",
+      "symbol": "MSFT",
+      "name": "Microsoft Corporation",
       "category": "equities",
       "group": "stocks",
-      "startPrice": 230,
+      "startPrice": 391,
+      "priceDecimals": 2,
+      "factors": {
+        "globalRisk": 0.75,
+        "rates": -0.35,
+        "usd": -0.2
+      }
+    },
+    {
+      "id": "eq-nvda",
+      "symbol": "NVDA",
+      "name": "NVIDIA Corporation",
+      "category": "equities",
+      "group": "stocks",
+      "startPrice": 124,
+      "priceDecimals": 2,
+      "factors": {
+        "globalRisk": 0.85,
+        "rates": -0.45,
+        "usd": -0.2,
+        "chinaGrowth": 0.25
+      }
+    },
+    {
+      "id": "eq-tsla",
+      "symbol": "TSLA",
+      "name": "Tesla, Inc.",
+      "category": "equities",
+      "group": "stocks",
+      "startPrice": 412,
       "priceDecimals": 2,
       "factors": {
         "globalRisk": 0.95,
@@ -104,12 +104,26 @@
       }
     },
     {
-      "id": "eq-jpm",
-      "symbol": "JPM",
-      "name": "JPMorgan",
+      "id": "eq-amzn",
+      "symbol": "AMZN",
+      "name": "Amazon.com, Inc.",
       "category": "equities",
       "group": "stocks",
-      "startPrice": 195,
+      "startPrice": 178,
+      "priceDecimals": 2,
+      "factors": {
+        "globalRisk": 0.7,
+        "rates": -0.28,
+        "usd": -0.15
+      }
+    },
+    {
+      "id": "eq-jpm",
+      "symbol": "JPM",
+      "name": "JPMorgan Chase & Co.",
+      "category": "equities",
+      "group": "stocks",
+      "startPrice": 211,
       "priceDecimals": 2,
       "factors": {
         "globalRisk": 0.45,
@@ -118,12 +132,40 @@
       }
     },
     {
+      "id": "eq-xom",
+      "symbol": "XOM",
+      "name": "Exxon Mobil Corporation",
+      "category": "equities",
+      "group": "stocks",
+      "startPrice": 118,
+      "priceDecimals": 2,
+      "factors": {
+        "globalRisk": 0.4,
+        "energy": 0.95,
+        "usd": -0.1
+      }
+    },
+    {
+      "id": "eq-goog",
+      "symbol": "GOOG",
+      "name": "Alphabet Inc.",
+      "category": "equities",
+      "group": "stocks",
+      "startPrice": 138,
+      "priceDecimals": 2,
+      "factors": {
+        "globalRisk": 0.74,
+        "rates": -0.3,
+        "usd": -0.18
+      }
+    },
+    {
       "id": "idx-spx",
       "symbol": "SPX",
-      "name": "S&P 500",
+      "name": "S&P 500 Index",
       "category": "equities",
       "group": "indices",
-      "startPrice": 5000,
+      "startPrice": 4780,
       "priceDecimals": 1,
       "factors": {
         "globalRisk": 0.95,
@@ -131,40 +173,12 @@
       }
     },
     {
-      "id": "idx-csi300",
-      "symbol": "CSI300",
-      "name": "CSI 300",
-      "category": "equities",
-      "group": "indices",
-      "startPrice": 3600,
-      "priceDecimals": 1,
-      "factors": {
-        "globalRisk": 0.6,
-        "chinaGrowth": 1.05,
-        "usd": -0.15
-      }
-    },
-    {
-      "id": "idx-sx5e",
-      "symbol": "SX5E",
-      "name": "Euro Stoxx 50",
-      "category": "equities",
-      "group": "indices",
-      "startPrice": 5000,
-      "priceDecimals": 1,
-      "factors": {
-        "globalRisk": 0.65,
-        "europeGrowth": 0.85,
-        "rates": -0.15
-      }
-    },
-    {
       "id": "idx-ftse100",
-      "symbol": "FTSE100",
-      "name": "FTSE 100",
+      "symbol": "UKX",
+      "name": "FTSE 100 Index",
       "category": "equities",
       "group": "indices",
-      "startPrice": 7800,
+      "startPrice": 7680,
       "priceDecimals": 1,
       "factors": {
         "globalRisk": 0.45,
@@ -173,12 +187,26 @@
       }
     },
     {
-      "id": "idx-nikkei",
-      "symbol": "NIKKEI",
-      "name": "Nikkei 225",
+      "id": "idx-sx5e",
+      "symbol": "ESTOXX",
+      "name": "Euro Stoxx 50 Index",
       "category": "equities",
       "group": "indices",
-      "startPrice": 38000,
+      "startPrice": 4920,
+      "priceDecimals": 1,
+      "factors": {
+        "globalRisk": 0.65,
+        "europeGrowth": 0.85,
+        "rates": -0.15
+      }
+    },
+    {
+      "id": "idx-nikkei",
+      "symbol": "NKY",
+      "name": "Nikkei 225 Index",
+      "category": "equities",
+      "group": "indices",
+      "startPrice": 38500,
       "priceDecimals": 0,
       "factors": {
         "globalRisk": 0.62,
@@ -186,24 +214,39 @@
       }
     },
     {
-      "id": "cmd-gold",
-      "symbol": "GOLD",
-      "name": "Gold",
+      "id": "idx-csi300",
+      "symbol": "CSI",
+      "name": "CSI 300 Index",
+      "category": "equities",
+      "group": "indices",
+      "startPrice": 3650,
+      "priceDecimals": 1,
+      "factors": {
+        "globalRisk": 0.6,
+        "chinaGrowth": 1.05,
+        "usd": -0.15
+      }
+    },
+    {
+      "id": "cmd-brent",
+      "symbol": "BRENT",
+      "name": "Brent Crude Oil",
       "category": "commodities",
-      "startPrice": 2050,
+      "startPrice": 77,
       "priceDecimals": 2,
       "factors": {
-        "globalRisk": -0.2,
-        "rates": -0.45,
-        "usd": -0.4
+        "globalRisk": 0.35,
+        "energy": 1.15,
+        "usd": -0.42,
+        "chinaGrowth": 0.28
       }
     },
     {
       "id": "cmd-wti",
       "symbol": "WTI",
-      "name": "WTI Crude",
+      "name": "WTI Crude Oil",
       "category": "commodities",
-      "startPrice": 76,
+      "startPrice": 73,
       "priceDecimals": 2,
       "factors": {
         "globalRisk": 0.35,
@@ -213,17 +256,30 @@
       }
     },
     {
-      "id": "cmd-brent",
-      "symbol": "BRENT",
-      "name": "Brent Crude",
+      "id": "cmd-gold",
+      "symbol": "AU",
+      "name": "Gold Spot",
       "category": "commodities",
-      "startPrice": 80,
+      "startPrice": 2340,
       "priceDecimals": 2,
       "factors": {
-        "globalRisk": 0.35,
-        "energy": 1.15,
-        "usd": -0.42,
-        "chinaGrowth": 0.28
+        "globalRisk": -0.2,
+        "rates": -0.45,
+        "usd": -0.4
+      }
+    },
+    {
+      "id": "cmd-silver",
+      "symbol": "AG",
+      "name": "Silver Spot",
+      "category": "commodities",
+      "startPrice": 27,
+      "priceDecimals": 2,
+      "factors": {
+        "globalRisk": 0.05,
+        "rates": -0.3,
+        "usd": -0.35,
+        "energy": 0.1
       }
     }
   ],
