@@ -122,10 +122,10 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .side-widget-item{display:flex;flex-direction:column;gap:4px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:8px 10px}
 .side-widget-value{font-size:0.9rem;font-weight:600}
 .assets-card .panel-header{align-items:flex-start}
-.assets-body{flex:1;min-height:0;overflow-x:hidden}
+.assets-body{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .assets-header{display:grid;grid-template-columns:minmax(9ch,1.15fr) minmax(8ch,0.9fr) minmax(8ch,0.9fr) minmax(11ch,1.1fr) minmax(11ch,1fr);gap:12px;font-size:0.62rem;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);padding:2px 12px 0}
 .assets-header-num{text-align:right}
-.assets-list{display:flex;flex-direction:column;gap:6px;min-height:0;overflow-y:auto;overflow-x:hidden}
+.assets-list{display:flex;flex-direction:column;gap:6px;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
 .asset-row{display:flex;flex-direction:column;gap:0;align-items:stretch;padding-inline:10px;padding-block:12px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:var(--text);text-align:left;cursor:pointer;overflow:hidden;transition:border-color .2s ease,background .2s ease,box-shadow .2s ease}
 .asset-row-main{display:grid;grid-template-columns:minmax(9ch,1.15fr) minmax(8ch,0.9fr) minmax(8ch,0.9fr) minmax(11ch,1.1fr) minmax(11ch,1fr);gap:12px;align-items:center;min-height:24px}
 .asset-row-detail{display:grid;grid-template-columns:minmax(9ch,1.15fr) auto auto;align-items:center;column-gap:12px;max-height:0;opacity:0;transform:translateY(-4px);margin-top:0;padding-top:0;border-top:1px solid transparent;overflow:hidden;transition:max-height .24s ease,opacity .2s ease,transform .24s ease,margin-top .24s ease,padding-top .24s ease,border-top-color .24s ease}
@@ -142,6 +142,10 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .asset-pnl.positive,.asset-change.positive,.metric-value.positive{color:#7dff57}
 .asset-pnl.negative,.asset-change.negative,.metric-value.negative{color:#ff4f6d}
 .asset-position{color:var(--muted)}
+
+.admin-asset-row{display:grid;grid-template-columns:minmax(8ch,1.1fr) minmax(8ch,1fr) minmax(7ch,0.8fr) minmax(9ch,1fr);gap:12px;align-items:center}
+.admin-asset-row .asset-symbol{text-align:left}
+.admin-asset-row .asset-price,.admin-asset-row .asset-position,.admin-asset-row .asset-pnl{text-align:right}
 .order-asset-label{margin-left:8px;font-size:0.78rem;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);letter-spacing:0.08em;text-transform:uppercase}
 .panel{display:flex;flex-direction:column;gap:8px}
 .panel-header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:0}
@@ -399,6 +403,6 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .asset-tab.active{background:#1a2c49;border-color:#3b5c90}
 .asset-subsection{padding:6px 8px;color:var(--muted);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
 
-#adminAssetsList{max-height:520px;overflow:auto}
+#adminAssetsList{flex:1 1 auto;min-height:260px;max-height:none;overflow:auto}
 #adminChart{height:420px}
 #playersTbody td{font-size:.85rem}
