@@ -123,15 +123,15 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .side-widget-value{font-size:0.9rem;font-weight:600}
 .assets-card .panel-header{align-items:flex-start}
 .assets-body{flex:1;min-height:0;overflow-x:hidden}
-.assets-header{display:grid;grid-template-columns:minmax(8ch,11ch) 8.5ch 9.5ch 8.5ch 12ch 10ch;gap:14px;font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:0 12px}
+.assets-header{display:grid;grid-template-columns:minmax(7ch,9.5ch) 7ch 7.5ch 7ch 9.5ch 8.5ch;gap:8px;font-size:0.62rem;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);padding:2px 10px 0}
 .assets-header-num{text-align:right}
 .assets-list{display:flex;flex-direction:column;gap:6px;min-height:0;overflow-y:auto;overflow-x:hidden}
-.asset-row{display:grid;grid-template-columns:minmax(8ch,11ch) 8.5ch 9.5ch 8.5ch 12ch 10ch;gap:14px;align-items:center;padding:8px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:var(--text);text-align:left;cursor:pointer;transition:border-color .15s ease,background .15s ease}
+.asset-row{display:grid;grid-template-columns:minmax(7ch,9.5ch) 7ch 7.5ch 7ch 9.5ch 8.5ch;gap:8px;align-items:center;padding:10px 10px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:var(--text);text-align:left;cursor:pointer;transition:border-color .15s ease,background .15s ease}
 .asset-row.has-position{background:rgba(210,192,255,0.14);border-color:rgba(210,192,255,0.45)}
 .asset-row:hover{border-color:rgba(109,168,255,0.45);background:rgba(109,168,255,0.12)}
 .asset-row.active{border-color:rgba(109,168,255,0.7);box-shadow:0 0 0 1px rgba(109,168,255,0.3)}
-.asset-symbol{font-weight:600;letter-spacing:0.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.asset-price,.asset-change,.asset-position,.asset-pnl,.asset-pos-value{font-variant-numeric:tabular-nums;font-size:0.8rem;text-align:right;display:block;white-space:nowrap}
+.asset-symbol{font-weight:600;letter-spacing:0.04em;font-size:0.84rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.asset-price,.asset-change,.asset-position,.asset-pnl,.asset-pos-value{font-variant-numeric:tabular-nums;font-size:0.76rem;text-align:right;display:block;white-space:nowrap}
 .asset-pnl.positive,.asset-change.positive,.metric-value.positive{color:#7dff57}
 .asset-pnl.negative,.asset-change.negative,.metric-value.negative{color:#ff4f6d}
 .asset-position{color:var(--muted)}
