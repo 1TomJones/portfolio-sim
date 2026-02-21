@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kent Invest — Leaderboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="bg leaderboard-body">
+  <header class="admin-header">
+    <div class="admin-brand">
+      <img src="/assets/Kent_Invest_Logo.png" class="brandlogo" alt="Kent Invest" />
+      <div>
+        <h1>Live Leaderboard</h1>
+        <p class="muted">Scores update live with Sharpe + mandate penalties.</p>
+      </div>
+    </div>
+    <div class="admin-status-stack">
+      <span id="leaderboardUpdatedAt" class="pill hud-pill">Updated: —</span>
+      <span id="leaderboardCount" class="pill hud-pill">Players: 0</span>
+    </div>
+  </header>
+
+  <main class="admin-grid">
+    <section class="panel span-3">
+      <div class="panel-header">
+        <h2>Leaderboard</h2>
+        <span class="muted">Projected mode ready · rank changes flash</span>
+      </div>
+      <div class="leaderboard-wrap">
+        <table class="leaderboard-table">
+          <thead>
+            <tr id="leaderboardHeadRow"></tr>
+          </thead>
+          <tbody id="leaderboardTbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="leaderboard.js"></script>
+</body>
+</html>

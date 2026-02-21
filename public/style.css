@@ -420,3 +420,20 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .admin-chart-wrap{height:420px;min-height:320px}
 
 #playersTbody td{font-size:.85rem}
+
+.leaderboard-link{display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border:1px solid var(--grid);border-radius:6px;color:var(--text);text-decoration:none;background:rgba(109,168,255,0.14)}
+.leaderboard-link:hover{background:rgba(109,168,255,0.25)}
+.leaderboard-body .panel{min-height:70vh}
+.leaderboard-wrap{overflow:auto}
+.leaderboard-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.leaderboard-table th,.leaderboard-table td{padding:10px 8px;border-bottom:1px solid var(--grid);text-align:left;vertical-align:top}
+.leaderboard-player{font-weight:700}
+.leaderboard-awards{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.award-badge{display:inline-block;padding:2px 6px;border-radius:10px;background:rgba(109,168,255,0.14);border:1px solid rgba(109,168,255,0.35);font-size:0.72rem}
+.leaderboard-table tr.rank-up{background:rgba(46,204,113,0.12)}
+.leaderboard-table tr.rank-down{background:rgba(255,92,92,0.1)}
+.leaderboard-th-wrap{display:flex;align-items:center;gap:6px}
+.leaderboard-sort-btn,.leaderboard-eye-btn{background:transparent;border:1px solid rgba(255,255,255,0.15);color:var(--text);border-radius:4px;cursor:pointer}
+.leaderboard-sort-btn{padding:4px 6px;font-weight:600}
+.leaderboard-eye-btn{padding:2px 6px;line-height:1}
+.leaderboard-sort-btn:hover,.leaderboard-eye-btn:hover{background:rgba(109,168,255,0.16)}
