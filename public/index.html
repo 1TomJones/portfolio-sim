@@ -117,17 +117,18 @@
               <div class="panel-header trade-header">
                 <h3>Order Entry <span id="orderAssetLabel" class="order-asset-label">—</span></h3>
               </div>
-            </div>
-
-            <div class="panel card placeholder-card macro-panel">
-              <div class="panel-header">
-                <h3>Official News Release</h3>
-                <span class="muted small-text">Official release timeline</span>
-              </div>
-              <div id="macroFeed" class="macro-body">
-                <div class="macro-item">
-                  <strong>Official news releases</strong>
-                  <span class="muted">Waiting for the first release...</span>
+              <div class="trade-form">
+                <div class="form-row form-row-qty">
+                  <label for="quantityInput" class="muted small-text">Quantity</label>
+                  <input id="quantityInput" type="number" min="1" step="1" value="1" />
+                </div>
+                <div class="form-row">
+                  <span class="muted small-text">Estimated order value</span>
+                  <strong id="orderValueLabel">$0.00</strong>
+                </div>
+                <div class="form-actions compact-actions">
+                  <button id="buyBtn" class="buy" type="button">Buy</button>
+                  <button id="sellBtn" class="sell" type="button">Sell</button>
                 </div>
               </div>
             </div>
@@ -141,6 +142,19 @@
                 <canvas id="portfolioPie" class="portfolio-pie" width="320" height="200" aria-label="Portfolio allocation chart"></canvas>
                 <p id="portfolioPieDetails" class="muted small-text">Buy assets to populate the portfolio overview.</p>
                 <p id="portfolioPieTotals" class="small-text">Commodities: 0.00% · Equities: 0.00%</p>
+              </div>
+            </div>
+
+            <div class="panel card placeholder-card macro-panel">
+              <div class="panel-header">
+                <h3>Official News Release</h3>
+                <span class="muted small-text">Official release timeline</span>
+              </div>
+              <div id="macroFeed" class="macro-body">
+                <div class="macro-item">
+                  <strong>Official news releases</strong>
+                  <span class="muted">Waiting for the first release...</span>
+                </div>
               </div>
             </div>
           </div>

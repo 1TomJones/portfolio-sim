@@ -38,6 +38,7 @@ const orderAssetLabel = document.getElementById("orderAssetLabel");
 const buyBtn = document.getElementById("buyBtn");
 const sellBtn = document.getElementById("sellBtn");
 const quantityInput = document.getElementById("quantityInput");
+const orderValueLabel = document.getElementById("orderValueLabel");
 const portfolioPie = document.getElementById("portfolioPie");
 const portfolioPieDetails = document.getElementById("portfolioPieDetails");
 const portfolioPieTotals = document.getElementById("portfolioPieTotals");
@@ -259,6 +260,19 @@ function formatSignedCurrency(value) {
   if (!Number.isFinite(value)) return "—";
   const sign = value > 0 ? "+" : value < 0 ? "-" : "";
   return `${sign}${formatCurrency(Math.abs(value))}`;
+}
+
+function normalizedOrderQuantity() {
+  const qty = Number(quantityInput?.value || 0);
+  if (!Number.isFinite(qty)) return 0;
+  return Math.max(0, Math.floor(qty));
+}
+
+function updateOrderValueDisplay() {
+  if (!orderValueLabel) return;
+  const asset = selectedAssetId ? assetMap.get(selectedAssetId) : null;
+  const value = normalizedOrderQuantity() * Number(asset?.price || 0);
+  orderValueLabel.textContent = formatCurrency(value);
 }
 
 function getPositionData(assetId) {
@@ -593,6 +607,7 @@ function selectAsset(assetId) {
   activeTab = asset.category || activeTab;
   renderAssetTabs();
   renderAssetsList();
+  updateOrderValueDisplay();
 
   ensureChart();
   const candleData = [...(asset.candles || [])];
@@ -651,7 +666,8 @@ function handleOrder(side) {
   if (!selectedAssetId) return;
   if (currentPhase !== "running") return;
 
-  const qty = Number(quantityInput.value || 0);
+  const qty = normalizedOrderQuantity();
+  if (qty <= 0) return;
   socket.emit("submitOrder", { assetId: selectedAssetId, side, qty, type: "market" });
 }
 
@@ -703,6 +719,7 @@ socket.on("assetTick", (payload) => {
     updateChartForAsset(asset);
   });
   updateAssetsListValues();
+  updateOrderValueDisplay();
   if (selectedAssetId) updateAverageLine(assetMap.get(selectedAssetId));
 });
 
@@ -747,6 +764,7 @@ socket.on("scenarioError", (payload) => {
 
 buyBtn?.addEventListener("click", () => handleOrder("buy"));
 sellBtn?.addEventListener("click", () => handleOrder("sell"));
+quantityInput?.addEventListener("input", updateOrderValueDisplay);
 
 portfolioPie?.addEventListener("mousemove", (event) => {
   const { slices } = computePortfolioSlices();
@@ -838,6 +856,7 @@ async function init() {
   await validateScenario();
 
   updateFullscreenButtons();
+  updateOrderValueDisplay();
   socket.connect();
   updatePortfolioSummary();
   updateGameDateDisplay();
