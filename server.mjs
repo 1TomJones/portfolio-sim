@@ -25,6 +25,10 @@ app.use("/scenarios", express.static(path.join(__dirname, "scenarios")));
 app.get("/healthz", (_req, res) => res.send("ok"));
 app.get("/health", (_req, res) => res.status(200).json({ ok: true }));
 
+app.get("/leaderboard", (_req, res) => {
+  res.sendFile(path.join(__dirname, "public", "leaderboard.html"));
+});
+
 app.get("/app-config.js", (_req, res) => {
   const config = {
     NODE_ENV: process.env.NODE_ENV || "development",
@@ -35,6 +39,7 @@ app.get("/app-config.js", (_req, res) => {
 
 const PORT = process.env.PORT || 10000;
 const DEFAULT_CASH = 10000000;
+const STARTING_CAPITAL = DEFAULT_CASH;
 const scenariosPath = path.join(__dirname, "scenarios");
 const metadataPath = path.join(__dirname, "public", "meta", "scenarios.json");
 const fallbackScenarioId = process.env.DEFAULT_SCENARIO_ID || "default";
@@ -358,6 +363,7 @@ function resetSimulation(scenarioId) {
     const socket = io.sockets.sockets.get(socketId);
     socket?.emit("adminAssetSnapshot", { assets: initialAdminAssetPayload(), tickMs: sim.simCfg.tickMs, simStartMs: sim.simStartMs, tick: sim.tick, durationTicks: sim.durationTicks, scenario: sim.scenario });
   }
+  broadcastLeaderboard();
 }
 
 function activateScenario(scenarioId) {
@@ -401,6 +407,217 @@ function ensurePosition(player, assetId) {
 function computePositionPnl(positionData, assetPrice) {
   const unrealized = positionData.position ? (assetPrice - positionData.avgCost) * positionData.position : 0;
   return positionData.realizedPnl + unrealized;
+}
+
+function categoryExposureFromPositions(player) {
+  let equitiesValue = 0;
+  let commoditiesValue = 0;
+  let investedValue = 0;
+
+  for (const [assetId, data] of Object.entries(player.positions || {})) {
+    const asset = sim.assets.find((item) => item.id === assetId);
+    if (!asset) continue;
+    const value = Math.max(0, Number(data.position || 0) * Number(asset.price || 0));
+    investedValue += value;
+    if (asset.category === "equities") equitiesValue += value;
+    if (asset.category === "commodities") commoditiesValue += value;
+  }
+
+  return { equitiesValue, commoditiesValue, investedValue };
+}
+
+function computePlayerPortfolioValue(player) {
+  let holdingsValue = 0;
+  for (const [assetId, data] of Object.entries(player.positions || {})) {
+    const asset = sim.assets.find((item) => item.id === assetId);
+    if (!asset) continue;
+    holdingsValue += Number(data.position || 0) * Number(asset.price || 0);
+  }
+  return Number(player.cash || 0) + holdingsValue;
+}
+
+function stdDev(values) {
+  if (!Array.isArray(values) || values.length < 2) return 0;
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+  const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length;
+  return Math.sqrt(Math.max(variance, 0));
+}
+
+function average(values) {
+  if (!Array.isArray(values) || values.length === 0) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function positionPnlsForPlayer(player) {
+  const rows = [];
+  for (const [assetId, positionData] of Object.entries(player.positions || {})) {
+    const asset = sim.assets.find((item) => item.id === assetId);
+    if (!asset) continue;
+    rows.push({
+      assetId,
+      category: asset.category,
+      symbol: asset.symbol,
+      pnl: computePositionPnl(positionData, asset.price),
+    });
+  }
+  return rows;
+}
+
+function snapshotPlayerScoringAtCandleClose() {
+  for (const player of players.values()) {
+    if (!Array.isArray(player.scoringHistory)) player.scoringHistory = [];
+    const portfolioValue = computePlayerPortfolioValue(player);
+    const { investedValue, equitiesValue, commoditiesValue } = categoryExposureFromPositions(player);
+    const investedPct = portfolioValue > 0 ? (investedValue / portfolioValue) * 100 : 0;
+    const equitiesPct = investedValue > 0 ? (equitiesValue / investedValue) * 100 : 0;
+    const commoditiesPct = investedValue > 0 ? (commoditiesValue / investedValue) * 100 : 0;
+    const positionPnls = positionPnlsForPlayer(player);
+    const oilPnl = positionPnls
+      .filter((position) => ["cmd-brent", "cmd-wti"].includes(position.assetId) || ["BRENT", "WTI"].includes(position.symbol))
+      .reduce((sum, position) => sum + position.pnl, 0);
+
+    player.scoringHistory.push({
+      tick: sim.tick,
+      portfolioValue,
+      investedPct,
+      equitiesPct,
+      commoditiesPct,
+      positionPnls,
+      oilPnl,
+    });
+  }
+}
+
+function computePlayerMetrics(player) {
+  const history = Array.isArray(player.scoringHistory) ? player.scoringHistory : [];
+  const finalPortfolioValue = history.length ? history[history.length - 1].portfolioValue : computePlayerPortfolioValue(player);
+  const returnPct = ((finalPortfolioValue - STARTING_CAPITAL) / STARTING_CAPITAL) * 100;
+
+  const candleReturns = [];
+  for (let i = 1; i < history.length; i += 1) {
+    const prev = Number(history[i - 1].portfolioValue || 0);
+    const next = Number(history[i].portfolioValue || 0);
+    if (prev <= 0) continue;
+    candleReturns.push(((next - prev) / prev) * 100);
+  }
+
+  const volatilityPct = stdDev(candleReturns);
+  const sharpe = Math.abs(volatilityPct) < Number.EPSILON ? returnPct : returnPct / volatilityPct;
+
+  const avgInvested = average(history.map((entry) => Number(entry.investedPct || 0)));
+  let investmentScore = 0;
+  if (avgInvested >= 90) investmentScore = 100;
+  else if (avgInvested >= 80) investmentScore = 100 - (90 - avgInvested) * 5;
+  else investmentScore = 50 - (80 - avgInvested) * 2;
+  investmentScore = Math.max(0, investmentScore);
+
+  const outsideBandSeries = history.map((entry) => {
+    const eq = Number(entry.equitiesPct || 0);
+    const cmd = Number(entry.commoditiesPct || 0);
+    const eqOutside = Math.max(0, 50 - eq) + Math.max(0, eq - 80);
+    const cmdOutside = Math.max(0, 20 - cmd) + Math.max(0, cmd - 50);
+    return eqOutside + cmdOutside;
+  });
+  const avgPercentOutsideBand = average(outsideBandSeries);
+  const allocationScore = Math.max(0, 100 - avgPercentOutsideBand * 5);
+
+  const latestPositions = history.length ? history[history.length - 1].positionPnls : positionPnlsForPlayer(player);
+  const oilPnl = latestPositions
+    .filter((position) => ["cmd-brent", "cmd-wti"].includes(position.assetId) || ["BRENT", "WTI"].includes(position.symbol))
+    .reduce((sum, position) => sum + position.pnl, 0);
+
+  let penalty = 0;
+  for (const position of latestPositions) {
+    if (["cmd-brent", "cmd-wti"].includes(position.assetId) || ["BRENT", "WTI"].includes(position.symbol)) continue;
+    const loss = Math.max(0, -Number(position.pnl || 0));
+    if (loss <= 250000) continue;
+    penalty += 10 + Math.floor((loss - 250000) / 10000);
+  }
+  const oilLoss = Math.max(0, -oilPnl);
+  if (oilLoss > 250000) {
+    penalty += 10 + Math.floor((oilLoss - 250000) / 10000);
+  }
+
+  const penaltyFactor = Math.max(0, 1 - penalty / 100);
+  const finalScore = Math.max(0, sharpe * (investmentScore / 100) * (allocationScore / 100) * penaltyFactor);
+
+  let peak = STARTING_CAPITAL;
+  let maxDrawdownPct = 0;
+  for (const entry of history) {
+    const value = Number(entry.portfolioValue || 0);
+    peak = Math.max(peak, value);
+    if (peak > 0) {
+      const drawdownPct = ((peak - value) / peak) * 100;
+      maxDrawdownPct = Math.max(maxDrawdownPct, drawdownPct);
+    }
+  }
+
+  const equityPnl = latestPositions
+    .filter((position) => position.category === "equities")
+    .reduce((sum, position) => sum + Number(position.pnl || 0), 0);
+
+  return {
+    playerId: player.id,
+    playerName: player.name,
+    runId: player.runId,
+    returnPct,
+    volatilityPct,
+    sharpe,
+    avgInvested,
+    investmentScore,
+    allocationScore,
+    penalty,
+    finalScore,
+    oilPnl,
+    totalPnl: finalPortfolioValue - STARTING_CAPITAL,
+    equityPnl,
+    maxDrawdownPct,
+  };
+}
+
+function computeAwards(rows) {
+  const awardsByPlayerId = new Map();
+  const addAward = (playerId, code, label) => {
+    if (!playerId) return;
+    if (!awardsByPlayerId.has(playerId)) awardsByPlayerId.set(playerId, []);
+    awardsByPlayerId.get(playerId).push({ code, label });
+  };
+
+  const topOil = rows.filter((row) => row.oilPnl >= 500000).sort((a, b) => b.oilPnl - a.oilPnl)[0];
+  if (topOil) addAward(topOil.playerId, "top-oil", "🛢 Top Oil Trader");
+
+  const moneyBags = [...rows].sort((a, b) => b.totalPnl - a.totalPnl)[0];
+  if (moneyBags) addAward(moneyBags.playerId, "money-bags", "💰 Money Bags");
+
+  const riskMaster = [...rows].sort((a, b) => b.sharpe - a.sharpe)[0];
+  if (riskMaster) addAward(riskMaster.playerId, "risk-master", "🧠 Risk Master");
+
+  const equityPro = [...rows].sort((a, b) => b.equityPnl - a.equityPnl)[0];
+  if (equityPro) addAward(equityPro.playerId, "equity-pro", "📈 Equity Pro");
+
+  const capitalProtector = rows
+    .filter((row) => row.returnPct > 0)
+    .sort((a, b) => a.maxDrawdownPct - b.maxDrawdownPct)[0];
+  if (capitalProtector) addAward(capitalProtector.playerId, "capital-protector", "🛡 Capital Protector");
+
+  return awardsByPlayerId;
+}
+
+function leaderboardPayload() {
+  const rows = [...players.values()].map((player) => computePlayerMetrics(player));
+  rows.sort((a, b) => b.finalScore - a.finalScore);
+  const awardsByPlayerId = computeAwards(rows);
+  rows.forEach((row, index) => {
+    row.rank = index + 1;
+    row.awards = awardsByPlayerId.get(row.playerId) || [];
+    const player = players.get(row.playerId);
+    if (player) player.latestScore = Number.isFinite(row.finalScore) ? Number(row.finalScore.toFixed(6)) : 0;
+  });
+  return { updatedAt: Date.now(), rows };
+}
+
+function broadcastLeaderboard() {
+  io.emit("leaderboard", leaderboardPayload());
 }
 
 function publishPortfolio(player) {
@@ -646,6 +863,7 @@ function stepTick() {
   const updates = [];
   const adminUpdates = [];
 
+  let candleClosed = false;
   for (const asset of sim.assets) {
     asset.fairValue = computeFairValue(asset);
     asset.price = moveAssetPriceByPoint(asset);
@@ -669,6 +887,7 @@ function stepTick() {
     let completedCandle = null;
     if (asset.ticksInCandle >= sim.simCfg.ticksPerCandle) {
       completedCandle = asset.currentCandle;
+      candleClosed = true;
       asset.candles.push(completedCandle);
       asset.fairPoints.push({ time: completedCandle.time, value: asset.fairValue });
       if (asset.fairPoints.length > sim.simCfg.maxCandles) asset.fairPoints.shift();
@@ -705,6 +924,11 @@ function stepTick() {
   io.emit("assetTick", { assets: updates, tick: sim.tick, durationTicks: sim.durationTicks });
   io.emit("macroEvents", macroPayload());
 
+  if (candleClosed) {
+    snapshotPlayerScoringAtCandleClose();
+    broadcastLeaderboard();
+  }
+
   if (sim.durationTicks > 0 && sim.tick >= sim.durationTicks) {
     setPhase("ended");
   }
@@ -718,6 +942,8 @@ function stepTick() {
 function startTicking() {
   if (sim.tickTimer) clearInterval(sim.tickTimer);
   sim.tickTimer = setInterval(stepTick, sim.simCfg.tickMs);
+  if (sim.leaderboardTimer) clearInterval(sim.leaderboardTimer);
+  sim.leaderboardTimer = setInterval(() => broadcastLeaderboard(), 5000);
 }
 
 function setPhase(nextPhase) {
@@ -845,6 +1071,10 @@ app.get("/api/events/:code/status", (req, res) => {
   res.json({ eventCode: code, phase: sim.phase });
 });
 
+app.get("/api/leaderboard", (_req, res) => {
+  res.json(leaderboardPayload());
+});
+
 app.post("/api/admin/phase", (req, res) => {
   const { phase } = req.body || {};
   if (!["running", "paused", "ended"].includes(phase)) {
@@ -863,10 +1093,15 @@ io.on("connection", (socket) => {
     socket.emit("phase", sim.phase);
     socket.emit("adminAssetSnapshot", { assets: initialAdminAssetPayload(), tickMs: sim.simCfg.tickMs, simStartMs: sim.simStartMs, tick: sim.tick, durationTicks: sim.durationTicks, scenario: sim.scenario });
     socket.emit("macroEvents", macroPayload());
+    socket.emit("leaderboard", leaderboardPayload());
+  } else if (role === "leaderboard") {
+    socket.emit("phase", sim.phase);
+    socket.emit("leaderboard", leaderboardPayload());
   } else {
     socket.emit("phase", sim.phase);
     socket.emit("assetSnapshot", { assets: initialAssetPayload(), tickMs: sim.simCfg.tickMs, simStartMs: sim.simStartMs, tick: sim.tick, durationTicks: sim.durationTicks, scenario: sim.scenario });
     socket.emit("macroEvents", macroPayload());
+    socket.emit("leaderboard", leaderboardPayload());
   }
 
   socket.on("join", (payload, ack) => {
@@ -890,12 +1125,14 @@ io.on("connection", (socket) => {
       joinedAt: new Date().toISOString(),
       status: "active",
       latestScore: null,
+      scoringHistory: [],
     });
 
     broadcastRoster();
     ack?.({ ok: true, phase: sim.phase, assets: initialAssetPayload(), tickMs: sim.simCfg.tickMs, durationTicks: sim.durationTicks, scenario: sim.scenario, ...rosterPayload() });
     socket.emit("macroEvents", macroPayload());
     publishPortfolio(players.get(socket.id));
+    broadcastLeaderboard();
   });
 
   socket.on("submitOrder", (order, ack) => {
@@ -937,6 +1174,7 @@ io.on("connection", (socket) => {
         return;
       }
       const fill = fillOrder(player, { assetId: asset.id, side, qty: effectiveQty, price: asset.price }, asset);
+      broadcastLeaderboard();
       ack?.({ ok: true, filled: (fill?.filledQty || 0) > 0, qty: fill?.filledQty || 0 });
       return;
     }
@@ -970,6 +1208,7 @@ io.on("connection", (socket) => {
 
     player.orders.push(orderData);
     publishPortfolio(player);
+    broadcastLeaderboard();
     ack?.({ ok: true, filled: false });
   });
 
