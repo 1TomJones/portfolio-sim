@@ -16,7 +16,6 @@ const TAB_LABELS = { equities: "Equities", commodities: "Commodities", bonds: "B
 const runErrorView = document.getElementById("runErrorView");
 const runErrorTitle = runErrorView?.querySelector("h2");
 const runErrorDetail = runErrorView?.querySelector("p.muted");
-const scenarioLabel = document.getElementById("scenarioLabel");
 const gameDateBadge = document.getElementById("gameDateBadge");
 const newsFeed = document.getElementById("newsFeed");
 const macroFeed = document.getElementById("macroFeed");
@@ -28,7 +27,6 @@ const nameInput = document.getElementById("nameInput");
 const joinBtn = document.getElementById("joinBtn");
 const joinMsg = document.getElementById("joinMsg");
 const connectionBadge = document.getElementById("connectionBadge");
-const phaseBadge = document.getElementById("phaseBadge");
 const posLbl = document.getElementById("posLbl");
 const cashLbl = document.getElementById("cashLbl");
 const openPnlLbl = document.getElementById("openPnlLbl");
@@ -40,6 +38,8 @@ const orderAssetLabel = document.getElementById("orderAssetLabel");
 const buyBtn = document.getElementById("buyBtn");
 const sellBtn = document.getElementById("sellBtn");
 const quantityInput = document.getElementById("quantityInput");
+const fullscreenButtons = Array.from(document.querySelectorAll("[data-fullscreen]"));
+
 
 const chartContainer = document.getElementById("chart");
 let chartApi = null;
@@ -114,13 +114,12 @@ async function validateScenario() {
   }
 }
 
-function pushNewsItem(headline, tick) {
-  if (!newsFeed || !headline) return;
+function pushNewsItem(headline, tick, category = "general") {
+  if (!newsFeed || !headline || category !== "general") return;
   const item = document.createElement("div");
   item.className = "news-item";
   item.innerHTML = `<strong>T+${tick ?? "—"}s</strong><span class="muted">${headline}</span>`;
   newsFeed.prepend(item);
-  while (newsFeed.children.length > 6) newsFeed.removeChild(newsFeed.lastElementChild);
 }
 
 function renderMacroEvents() {
@@ -157,9 +156,6 @@ function renderMacroEvents() {
     macroFeed.appendChild(item);
   });
 
-  while (macroFeed.children.length > 8) {
-    macroFeed.removeChild(macroFeed.lastElementChild);
-  }
 }
 
 function formatNumber(value, digits = 2) {
@@ -213,8 +209,16 @@ function updatePortfolioSummary() {
 
   posLbl.textContent = formatCurrency(positionValue);
   if (cashLbl) cashLbl.textContent = formatCurrency(availableCash);
-  if (openPnlLbl) openPnlLbl.textContent = formatSignedCurrency(openPnl);
-  if (pnlLbl) pnlLbl.textContent = formatSignedCurrency(totalPnl);
+  if (openPnlLbl) {
+    openPnlLbl.textContent = formatSignedCurrency(openPnl);
+    openPnlLbl.classList.toggle("positive", openPnl > 0);
+    openPnlLbl.classList.toggle("negative", openPnl < 0);
+  }
+  if (pnlLbl) {
+    pnlLbl.textContent = formatSignedCurrency(totalPnl);
+    pnlLbl.classList.toggle("positive", totalPnl > 0);
+    pnlLbl.classList.toggle("negative", totalPnl < 0);
+  }
 }
 
 function createAssetRow(asset) {
@@ -316,7 +320,14 @@ function updateAssetsListValues() {
 
     row.querySelector(".asset-price").textContent = formatNumber(asset.price, asset.isYield ? 3 : 2);
     row.querySelector(".asset-position").textContent = String(posData.position.toFixed(0));
-    row.querySelector(".asset-pnl").textContent = pnlData.toFixed(2);
+
+    const pnlCell = row.querySelector(".asset-pnl");
+    pnlCell.textContent = formatSignedCurrency(pnlData);
+    pnlCell.classList.toggle("positive", pnlData > 0);
+    pnlCell.classList.toggle("negative", pnlData < 0);
+
+    const hasPosition = Math.abs(posData.position || 0) > 0;
+    row.classList.toggle("has-position", hasPosition);
     row.classList.toggle("active", asset.id === selectedAssetId);
   });
 
@@ -424,8 +435,6 @@ function refreshViewForPhase() {
 
 function setPhase(phase) {
   currentPhase = String(phase || "lobby").toLowerCase();
-  if (phaseBadge) phaseBadge.textContent = `Phase: ${currentPhase}`;
-
   const marketOpen = currentPhase === "running";
   if (buyBtn) buyBtn.disabled = !marketOpen;
   if (sellBtn) sellBtn.disabled = !marketOpen;
@@ -507,7 +516,7 @@ socket.on("portfolio", (payload) => {
 });
 
 socket.on("news", (payload) => {
-  pushNewsItem(payload?.headline, payload?.tick);
+  pushNewsItem(payload?.headline, payload?.tick, payload?.category);
 });
 
 socket.on("macroEvents", (payload) => {
@@ -548,13 +557,39 @@ joinBtn?.addEventListener("click", () => {
   });
 });
 
-async function init() {
-  const scenario = await validateScenario();
-  if (scenarioLabel) {
-    if (scenario) scenarioLabel.textContent = `${scenario.name || scenario.id} (${scenario.id})`;
-    else scenarioLabel.textContent = "Scenario: server default";
-  }
 
+
+function fullscreenSupported() {
+  return Boolean(document.documentElement?.requestFullscreen);
+}
+
+function updateFullscreenButtons() {
+  const active = Boolean(document.fullscreenElement);
+  fullscreenButtons.forEach((btn) => {
+    btn.dataset.active = String(active);
+    btn.textContent = active ? "Exit Fullscreen" : "Enter Fullscreen";
+  });
+}
+
+function toggleFullscreen() {
+  if (!fullscreenSupported()) return;
+  if (document.fullscreenElement) {
+    document.exitFullscreen?.();
+    return;
+  }
+  document.documentElement.requestFullscreen?.();
+}
+
+fullscreenButtons.forEach((btn) => {
+  btn.addEventListener("click", toggleFullscreen);
+});
+
+document.addEventListener("fullscreenchange", updateFullscreenButtons);
+
+async function init() {
+  await validateScenario();
+
+  updateFullscreenButtons();
   socket.connect();
   updatePortfolioSummary();
   updateGameDateDisplay();

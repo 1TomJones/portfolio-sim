@@ -460,11 +460,14 @@ function applyNewsIfAny() {
       registerAssetImpact(linkedAsset.id, Number(impact.fv_pct_delta || 0), Number(impact.decay_seconds || nextNews.decay_seconds || 180));
     }
 
+    const macroLinked = sim.macroEvents.some((event) => Number(event.actualTick) === Number(sim.tick));
+
     io.emit("news", {
       tick: sim.tick,
       headline: nextNews.headline,
       factorShocks,
       assetShocks,
+      category: macroLinked ? "macro" : "general",
       scenarioId: sim.scenario?.id || null,
     });
   }
