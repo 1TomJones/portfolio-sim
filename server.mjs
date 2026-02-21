@@ -218,6 +218,7 @@ function createSimulationState(scenarioId) {
     maxCandles: Number(scenario.maxCandles || 80),
     meanReversion: Number(scenario.meanReversion || 0.12),
     baseNoise: Number(scenario.baseNoise || 0.0018),
+    majorMomentumTicks: Number(scenario.majorMomentumTicks || 300),
   };
   simCfg.simStartMs = resolveSimStartTimestampMs(scenario);
 
@@ -257,6 +258,7 @@ function createSimulationState(scenarioId) {
     macroExpectationCursor: 0,
     releasedMacro: [],
     assetImpacts: {},
+    majorAssetMomentums: {},
     correlationRules,
     tick: 0,
     phase: "lobby",
@@ -296,32 +298,49 @@ function getNewsTick(newsItem) {
   return 0;
 }
 
-function registerAssetImpact(assetId, fvPctDelta, decaySeconds) {
+function registerAssetImpact(assetId, fvPctDelta) {
   if (!assetId || !Number.isFinite(Number(fvPctDelta))) return;
-  const decayTicks = Math.max(1, Math.round((Number(decaySeconds || 0) * 1000) / sim.simCfg.tickMs) || 1);
-  if (!sim.assetImpacts[assetId]) sim.assetImpacts[assetId] = [];
-  sim.assetImpacts[assetId].push({
-    fvPctDelta: Number(fvPctDelta),
-    ticksLeft: decayTicks,
-    totalTicks: decayTicks,
-  });
+  sim.assetImpacts[assetId] = (sim.assetImpacts[assetId] || 0) + Number(fvPctDelta);
 }
 
 function currentAssetImpactPct(assetId) {
-  const impacts = sim.assetImpacts[assetId] || [];
-  return impacts.reduce((acc, impact) => {
-    const weight = Math.max(0, impact.ticksLeft) / Math.max(1, impact.totalTicks);
-    return acc + impact.fvPctDelta * weight;
-  }, 0);
+  return Number(sim.assetImpacts[assetId] || 0);
 }
 
-function decayAssetImpacts() {
-  for (const [assetId, impacts] of Object.entries(sim.assetImpacts)) {
-    sim.assetImpacts[assetId] = impacts
-      .map((impact) => ({ ...impact, ticksLeft: impact.ticksLeft - 1 }))
-      .filter((impact) => impact.ticksLeft > 0);
-    if (!sim.assetImpacts[assetId].length) {
-      delete sim.assetImpacts[assetId];
+function registerMajorAssetMomentum(assetId, fvPctDelta, totalTicks = sim.simCfg.majorMomentumTicks) {
+  if (!assetId || !Number.isFinite(Number(fvPctDelta)) || Math.abs(Number(fvPctDelta)) < Number.EPSILON) return;
+  const ticks = Math.max(1, Math.round(Number(totalTicks) || 300));
+  if (!sim.majorAssetMomentums[assetId]) sim.majorAssetMomentums[assetId] = [];
+  sim.majorAssetMomentums[assetId].push({
+    fvPctDelta: Number(fvPctDelta),
+    totalTicks: ticks,
+    ticksElapsed: 0,
+    appliedPct: 0,
+  });
+}
+
+function applyMajorAssetMomentums() {
+  for (const [assetId, momentumEntries] of Object.entries(sim.majorAssetMomentums)) {
+    sim.majorAssetMomentums[assetId] = momentumEntries
+      .map((entry) => {
+        const nextElapsed = Math.min(entry.totalTicks, entry.ticksElapsed + 1);
+        const progress = nextElapsed / Math.max(1, entry.totalTicks);
+        const easedProgress = 1 - (1 - progress) ** 2;
+        const targetAppliedPct = entry.fvPctDelta * easedProgress;
+        const incrementalPct = targetAppliedPct - entry.appliedPct;
+        if (Math.abs(incrementalPct) > Number.EPSILON) {
+          registerAssetImpact(assetId, incrementalPct);
+        }
+        return {
+          ...entry,
+          ticksElapsed: nextElapsed,
+          appliedPct: targetAppliedPct,
+        };
+      })
+      .filter((entry) => entry.ticksElapsed < entry.totalTicks);
+
+    if (!sim.majorAssetMomentums[assetId].length) {
+      delete sim.majorAssetMomentums[assetId];
     }
   }
 }
@@ -511,14 +530,18 @@ function applyNewsIfAny() {
     for (const [assetId, pctShock] of Object.entries(assetShocks)) {
       const asset = sim.assets.find((candidate) => candidate.id === assetId);
       if (!asset) continue;
-      registerAssetImpact(asset.id, Number(pctShock || 0), Number(nextNews.decay_seconds || 180));
+      const shockPct = Number(pctShock || 0);
+      registerAssetImpact(asset.id, shockPct);
+      if (nextNews.major) registerMajorAssetMomentum(asset.id, shockPct);
     }
 
     for (const impact of nextNews.impacts || []) {
       const symbol = String(impact.symbol || "").trim();
       const linkedAsset = sim.assets.find((candidate) => candidate.id === impact.assetId || candidate.symbol === symbol);
       if (!linkedAsset) continue;
-      registerAssetImpact(linkedAsset.id, Number(impact.fv_pct_delta || 0), Number(impact.decay_seconds || nextNews.decay_seconds || 180));
+      const shockPct = Number(impact.fv_pct_delta || 0);
+      registerAssetImpact(linkedAsset.id, shockPct);
+      if (nextNews.major) registerMajorAssetMomentum(linkedAsset.id, shockPct);
     }
 
     const macroLinked = sim.macroEvents.some((event) => Number(event.actualTick) === Number(sim.tick));
@@ -567,10 +590,7 @@ function applyMacroEventIfAny() {
 }
 
 function evolveFactors() {
-  for (const factor of Object.values(sim.factors)) {
-    const drift = -factor.level * (1 - factor.decay);
-    factor.level += drift;
-  }
+  // Fair-value factor shocks are permanent unless changed by future events.
 }
 
 function computeFairValue(asset) {
@@ -621,6 +641,7 @@ function stepTick() {
   evolveFactors();
   applyMacroEventIfAny();
   applyNewsIfAny();
+  applyMajorAssetMomentums();
 
   const updates = [];
   const adminUpdates = [];
@@ -680,7 +701,6 @@ function stepTick() {
     });
   }
 
-  decayAssetImpacts();
 
   io.emit("assetTick", { assets: updates, tick: sim.tick, durationTicks: sim.durationTicks });
   io.emit("macroEvents", macroPayload());
