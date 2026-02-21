@@ -86,28 +86,17 @@ function formatGameTimeFromTick(tick) {
 }
 
 function buildScenarioNewsTimeline() {
-  const macroEntries = selectedScenarioNews.flatMap((event) => {
+  const macroEntries = selectedScenarioNews.map((event) => {
     const impactPct = 0;
-    return [
-      {
-        id: `${event.id || event.label}-expected`,
-        tick: asNumber(event.expectationTick),
-        token: "Expected",
-        label: event.label || "Macro release",
-        value: event.expected || "—",
-        impactPct,
-        releaseTick: asNumber(event.expectationTick),
-      },
-      {
-        id: `${event.id || event.label}-actual`,
-        tick: asNumber(event.actualTick),
-        token: "Actual",
-        label: event.label || "Macro release",
-        value: event.actual || "—",
-        impactPct,
-        releaseTick: asNumber(event.actualTick),
-      },
-    ];
+    return {
+      id: `${event.id || event.label}-outcome`,
+      tick: asNumber(event.actualTick),
+      token: "Outcome",
+      label: event.label || "Macro release",
+      value: event.actual || "—",
+      impactPct,
+      releaseTick: asNumber(event.actualTick),
+    };
   });
 
   const generalEntries = (currentScenarioPayload?.news || []).map((item, index) => ({
