@@ -477,6 +477,7 @@ function createAssetRow(asset) {
   row.type = "button";
   row.className = "asset-row";
   row.dataset.asset = asset.id;
+  row.setAttribute("aria-expanded", asset.id === selectedAssetId ? "true" : "false");
 
   const main = document.createElement("div");
   main.className = "asset-row-main";
@@ -615,6 +616,7 @@ function updateAssetsListValues() {
     const hasPosition = Math.abs(posData.position || 0) > 0;
     row.classList.toggle("has-position", hasPosition);
     row.classList.toggle("active", asset.id === selectedAssetId);
+    row.setAttribute("aria-expanded", asset.id === selectedAssetId ? "true" : "false");
   });
 
   updatePortfolioSummary();
