@@ -114,7 +114,7 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .left-col{display:flex;flex-direction:column;gap:0;min-width:0;min-height:0;height:100%}
 .right-col{display:flex;flex-direction:column;min-width:0;min-height:0;height:100%}
 .market-layout{display:grid;grid-template-columns:minmax(220px,0.5625fr) minmax(0,0.8875fr);grid-template-rows:minmax(0,1fr) 300px;gap:0;align-items:stretch;flex:1 1 auto;min-height:0}
-.market-layout .assets-card{grid-column:1;grid-row:1;min-height:0}
+.market-layout .assets-card{grid-column:1;grid-row:1;min-height:0;margin-left:-20px}
 .market-layout .market-chart-card{grid-column:2;grid-row:1;min-height:0}
 .market-layout .insight-stack{grid-column:1 / -1;grid-row:2;display:grid;grid-template-columns:minmax(220px,0.5625fr) minmax(0,0.8875fr) minmax(0,0.8875fr);gap:0;min-height:300px;max-height:300px}
 .side-widget{min-width:0;min-height:0;display:flex;flex-direction:column;gap:6px}
@@ -123,17 +123,17 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .side-widget-value{font-size:0.9rem;font-weight:600}
 .assets-card .panel-header{align-items:flex-start}
 .assets-body{flex:1;min-height:0;overflow-x:hidden}
-.assets-header{display:grid;grid-template-columns:minmax(0,1fr) 8.5ch 8ch 10ch 9ch;gap:8px;font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:0 10px}
+.assets-header{display:grid;grid-template-columns:minmax(8ch,11ch) 8.5ch 9.5ch 8.5ch 12ch 10ch;gap:14px;font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:0 12px}
 .assets-header-num{text-align:right}
 .assets-list{display:flex;flex-direction:column;gap:6px;min-height:0;overflow-y:auto;overflow-x:hidden}
-.asset-row{display:grid;grid-template-columns:minmax(0,1fr) 8.5ch 8ch 10ch 9ch;gap:8px;align-items:center;padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:var(--text);text-align:left;cursor:pointer;transition:border-color .15s ease,background .15s ease}
+.asset-row{display:grid;grid-template-columns:minmax(8ch,11ch) 8.5ch 9.5ch 8.5ch 12ch 10ch;gap:14px;align-items:center;padding:8px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:var(--text);text-align:left;cursor:pointer;transition:border-color .15s ease,background .15s ease}
 .asset-row.has-position{background:rgba(210,192,255,0.14);border-color:rgba(210,192,255,0.45)}
 .asset-row:hover{border-color:rgba(109,168,255,0.45);background:rgba(109,168,255,0.12)}
 .asset-row.active{border-color:rgba(109,168,255,0.7);box-shadow:0 0 0 1px rgba(109,168,255,0.3)}
 .asset-symbol{font-weight:600;letter-spacing:0.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.asset-price,.asset-position,.asset-pnl,.asset-pos-value{font-variant-numeric:tabular-nums;font-size:0.8rem;text-align:right;display:block;white-space:nowrap}
-.asset-pnl.positive,.metric-value.positive{color:#7dff57}
-.asset-pnl.negative,.metric-value.negative{color:#ff4f6d}
+.asset-price,.asset-change,.asset-position,.asset-pnl,.asset-pos-value{font-variant-numeric:tabular-nums;font-size:0.8rem;text-align:right;display:block;white-space:nowrap}
+.asset-pnl.positive,.asset-change.positive,.metric-value.positive{color:#7dff57}
+.asset-pnl.negative,.asset-change.negative,.metric-value.negative{color:#ff4f6d}
 .asset-position{color:var(--muted)}
 .order-asset-label{margin-left:8px;font-size:0.78rem;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);letter-spacing:0.08em;text-transform:uppercase}
 .panel{display:flex;flex-direction:column;gap:8px}
