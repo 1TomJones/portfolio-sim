@@ -260,7 +260,7 @@
       "symbol": "AU",
       "name": "Gold Spot",
       "category": "commodities",
-      "startPrice": 2340,
+      "startPrice": 5040,
       "priceDecimals": 2,
       "factors": {
         "globalRisk": -0.2,
