@@ -478,6 +478,9 @@ function createAssetRow(asset) {
   row.className = "asset-row";
   row.dataset.asset = asset.id;
 
+  const main = document.createElement("div");
+  main.className = "asset-row-main";
+
   const symbol = document.createElement("span");
   symbol.className = "asset-symbol";
   symbol.textContent = asset.symbol;
@@ -485,10 +488,6 @@ function createAssetRow(asset) {
   const price = document.createElement("span");
   price.className = "asset-price";
   price.textContent = formatNumber(asset.price, asset.isYield ? 3 : 2);
-
-  const change = document.createElement("span");
-  change.className = "asset-change";
-  change.textContent = "↔ 0.00%";
 
   const position = document.createElement("span");
   position.className = "asset-position";
@@ -502,7 +501,26 @@ function createAssetRow(asset) {
   pnl.className = "asset-pnl";
   pnl.textContent = "0.00";
 
-  row.append(symbol, price, change, position, posValue, pnl);
+  main.append(symbol, price, position, posValue, pnl);
+
+  const detail = document.createElement("div");
+  detail.className = "asset-row-detail";
+
+  const name = document.createElement("span");
+  name.className = "asset-name";
+  name.textContent = asset.name || asset.symbol;
+
+  const changeLabel = document.createElement("span");
+  changeLabel.className = "asset-change-label";
+  changeLabel.textContent = "1M % Chg";
+
+  const change = document.createElement("span");
+  change.className = "asset-change";
+  change.textContent = "↔ 0.00%";
+
+  detail.append(name, changeLabel, change);
+
+  row.append(main, detail);
   row.addEventListener("click", () => selectAsset(asset.id));
   return row;
 }
