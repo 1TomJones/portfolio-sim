@@ -122,14 +122,15 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .side-widget-item{display:flex;flex-direction:column;gap:4px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:8px 10px}
 .side-widget-value{font-size:0.9rem;font-weight:600}
 .assets-card .panel-header{align-items:flex-start}
-.assets-body{flex:1;min-height:0}
-.assets-header{display:grid;grid-template-columns:1.1fr 10.5ch 8ch 12ch 12ch;gap:6px;font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:0 6px}
-.assets-list{display:flex;flex-direction:column;gap:6px;min-height:0;overflow-y:auto}
-.asset-row{display:grid;grid-template-columns:1.1fr 10.5ch 8ch 12ch 12ch;gap:6px;align-items:center;padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:var(--text);text-align:left;cursor:pointer;transition:border-color .15s ease,background .15s ease}
+.assets-body{flex:1;min-height:0;overflow-x:hidden}
+.assets-header{display:grid;grid-template-columns:minmax(0,1fr) 8.5ch 8ch 10ch 9ch;gap:8px;font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);padding:0 10px}
+.assets-header-num{text-align:right}
+.assets-list{display:flex;flex-direction:column;gap:6px;min-height:0;overflow-y:auto;overflow-x:hidden}
+.asset-row{display:grid;grid-template-columns:minmax(0,1fr) 8.5ch 8ch 10ch 9ch;gap:8px;align-items:center;padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:var(--text);text-align:left;cursor:pointer;transition:border-color .15s ease,background .15s ease}
 .asset-row.has-position{background:rgba(210,192,255,0.14);border-color:rgba(210,192,255,0.45)}
 .asset-row:hover{border-color:rgba(109,168,255,0.45);background:rgba(109,168,255,0.12)}
 .asset-row.active{border-color:rgba(109,168,255,0.7);box-shadow:0 0 0 1px rgba(109,168,255,0.3)}
-.asset-symbol{font-weight:600;letter-spacing:0.04em}
+.asset-symbol{font-weight:600;letter-spacing:0.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .asset-price,.asset-position,.asset-pnl,.asset-pos-value{font-variant-numeric:tabular-nums;font-size:0.8rem;text-align:right;display:block;white-space:nowrap}
 .asset-pnl.positive,.metric-value.positive{color:#2ecc71}
 .asset-pnl.negative,.metric-value.negative{color:#ff5c5c}
