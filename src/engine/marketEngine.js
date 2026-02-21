@@ -868,6 +868,9 @@ export class MarketEngine {
     if (side === "BUY") {
       return Math.max(0, maxPos - player.position);
     }
+    if (this.config.longOnly !== false) {
+      return Math.max(0, player.position);
+    }
     return Math.max(0, player.position + maxPos);
   }
 
@@ -1146,7 +1149,8 @@ export class MarketEngine {
   _applyExecution(player, signedQty, price) {
     const maxPos = player?.maxPosition != null ? player.maxPosition : this.config.maxPosition;
     const prev = player.position;
-    const next = clamp(prev + signedQty, -maxPos, maxPos);
+    const minPos = this.config.longOnly !== false ? 0 : -maxPos;
+    const next = clamp(prev + signedQty, minPos, maxPos);
     const actual = next - prev;
     if (Math.abs(actual) <= 1e-9) return 0;
 
