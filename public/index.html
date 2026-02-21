@@ -92,41 +92,30 @@
                 <span>Ticker</span>
                 <span>Price</span>
                 <span>Position</span>
+                <span>Pos Value</span>
                 <span>PnL</span>
               </div>
               <div id="assetsList" class="assets-list"></div>
             </div>
           </div>
 
-          <div class="market-main">
-            <div class="panel card chart-card">
-              <div class="panel-header">
-                <h3>Price Chart</h3>
-                <div class="panel-tools">
-                  <span class="mode-label">Candlesticks</span>
-                  <span id="chartModeBadge" class="pill pill-mode">—</span>
-                </div>
-              </div>
-              <div class="chart-wrap">
-                <div id="chart" class="chart-surface"></div>
+          <div class="panel card chart-card market-chart-card">
+            <div class="panel-header">
+              <h3>Price Chart</h3>
+              <div class="panel-tools">
+                <span class="mode-label">Candlesticks</span>
+                <span id="chartModeBadge" class="pill pill-mode">—</span>
               </div>
             </div>
+            <div class="chart-wrap">
+              <div id="chart" class="chart-surface"></div>
+            </div>
+          </div>
 
-            <div class="trade-stack">
-              <div class="panel card trade-card">
-                <div class="panel-header trade-header">
-                  <h3>Order Entry <span id="orderAssetLabel" class="order-asset-label">—</span></h3>
-                </div>
-                <form id="tradeForm" class="trade-form">
-                  <div class="form-row form-row-qty">
-                    <label for="quantityInput">Volume</label>
-                    <input id="quantityInput" type="number" step="1" min="1" value="1" />
-                  </div>
-                  <div class="form-actions compact-actions">
-                    <button type="button" id="sellBtn" class="sell">Sell</button>
-                    <button type="button" id="buyBtn" class="buy">Buy</button>
-                  </div>
-                </form>
+          <div class="insight-stack">
+            <div class="panel card trade-card insight-trade-card">
+              <div class="panel-header trade-header">
+                <h3>Order Entry <span id="orderAssetLabel" class="order-asset-label">—</span></h3>
               </div>
               <div class="panel card placeholder-card macro-panel">
                 <div class="panel-header">

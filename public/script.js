@@ -38,6 +38,9 @@ const orderAssetLabel = document.getElementById("orderAssetLabel");
 const buyBtn = document.getElementById("buyBtn");
 const sellBtn = document.getElementById("sellBtn");
 const quantityInput = document.getElementById("quantityInput");
+const portfolioPie = document.getElementById("portfolioPie");
+const portfolioPieDetails = document.getElementById("portfolioPieDetails");
+const portfolioPieTotals = document.getElementById("portfolioPieTotals");
 const fullscreenButtons = Array.from(document.querySelectorAll("[data-fullscreen]"));
 
 
@@ -256,6 +259,116 @@ function pnlForAsset(asset) {
   return (posData.realizedPnl || 0) + unrealized;
 }
 
+function paletteFromCategory(category = "equities", idx = 0, total = 1) {
+  const ratio = total > 1 ? idx / (total - 1) : 0.5;
+  if (category === "commodities") {
+    return `hsl(${48 - ratio * 10}, 95%, ${62 - ratio * 18}%)`;
+  }
+  return `hsl(${200 + ratio * 14}, 95%, ${62 - ratio * 18}%)`;
+}
+
+function computePortfolioSlices() {
+  const slices = assets
+    .map((asset) => {
+      const posData = getPositionData(asset.id);
+      const qty = Math.max(0, Number(posData.position || 0));
+      const value = qty * Number(asset.price || 0);
+      return {
+        assetId: asset.id,
+        symbol: asset.symbol,
+        category: asset.category || "equities",
+        value,
+      };
+    })
+    .filter((slice) => slice.value > 0);
+
+  const total = slices.reduce((sum, slice) => sum + slice.value, 0);
+  const byCategory = { commodities: 0, equities: 0 };
+  slices.forEach((slice) => {
+    if (slice.category === "commodities") byCategory.commodities += slice.value;
+    else if (slice.category === "equities") byCategory.equities += slice.value;
+  });
+
+  const categoryBuckets = { commodities: [], equities: [] };
+  slices.forEach((slice) => {
+    if (slice.category === "commodities") categoryBuckets.commodities.push(slice);
+    else categoryBuckets.equities.push(slice);
+  });
+
+  ["commodities", "equities"].forEach((category) => {
+    const bucket = categoryBuckets[category];
+    bucket.forEach((slice, idx) => {
+      slice.color = paletteFromCategory(category, idx, bucket.length);
+      slice.pct = total > 0 ? (slice.value / total) * 100 : 0;
+    });
+  });
+
+  return { slices, total, byCategory };
+}
+
+function renderPortfolioOverview(hoveredAssetId = null) {
+  if (!portfolioPie) return;
+  const ctx = portfolioPie.getContext("2d");
+  if (!ctx) return;
+
+  const { slices, total, byCategory } = computePortfolioSlices();
+  const w = portfolioPie.width;
+  const h = portfolioPie.height;
+  const cx = w / 2;
+  const cy = h / 2 - 4;
+  const radius = Math.min(w, h) * 0.35;
+  const hoverOffset = 10;
+
+  ctx.clearRect(0, 0, w, h);
+
+  let start = -Math.PI / 2;
+  const geometry = [];
+  slices.forEach((slice) => {
+    const angle = total > 0 ? (slice.value / total) * Math.PI * 2 : 0;
+    const end = start + angle;
+    const isHovered = hoveredAssetId && hoveredAssetId === slice.assetId;
+    const mid = (start + end) / 2;
+    const dx = isHovered ? Math.cos(mid) * hoverOffset : 0;
+    const dy = isHovered ? Math.sin(mid) * hoverOffset : 0;
+
+    ctx.beginPath();
+    ctx.moveTo(cx + dx, cy + dy);
+    ctx.arc(cx + dx, cy + dy, radius, start, end);
+    ctx.closePath();
+    ctx.fillStyle = slice.color;
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#0d1423";
+    ctx.stroke();
+
+    geometry.push({ ...slice, start, end, cx: cx + dx, cy: cy + dy, radius });
+    start = end;
+  });
+
+  portfolioPie.dataset.slices = JSON.stringify(geometry.map((g) => ({ assetId: g.assetId, start: g.start, end: g.end })));
+
+  if (!slices.length) {
+    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    ctx.font = "13px system-ui";
+    ctx.textAlign = "center";
+    ctx.fillText("No positions yet", cx, cy + 4);
+    if (portfolioPieDetails) portfolioPieDetails.textContent = "Buy assets to populate the portfolio overview.";
+  } else if (hoveredAssetId) {
+    const slice = slices.find((item) => item.assetId === hoveredAssetId);
+    if (slice && portfolioPieDetails) {
+      portfolioPieDetails.textContent = `${slice.symbol} · ${formatCurrency(slice.value)} · ${slice.pct.toFixed(2)}%`;
+    }
+  } else if (portfolioPieDetails) {
+    portfolioPieDetails.textContent = "Hover over a slice to inspect value and weight.";
+  }
+
+  if (portfolioPieTotals) {
+    const commodityPct = total > 0 ? (byCategory.commodities / total) * 100 : 0;
+    const equitiesPct = total > 0 ? (byCategory.equities / total) * 100 : 0;
+    portfolioPieTotals.textContent = `Commodities: ${commodityPct.toFixed(2)}% · Equities: ${equitiesPct.toFixed(2)}%`;
+  }
+}
+
 function updatePortfolioSummary() {
   let totalPnl = 0;
   let openPnl = 0;
@@ -268,7 +381,7 @@ function updatePortfolioSummary() {
     const realized = posData.realizedPnl || 0;
     totalPnl += realized + unrealized;
     openPnl += unrealized;
-    positionValue += Math.abs(posData.position) * price;
+    positionValue += Math.max(0, posData.position) * price;
   });
 
   totalPnlValue = totalPnl;
@@ -287,6 +400,8 @@ function updatePortfolioSummary() {
     pnlLbl.classList.toggle("positive", totalPnl > 0);
     pnlLbl.classList.toggle("negative", totalPnl < 0);
   }
+
+  renderPortfolioOverview();
 }
 
 function createAssetRow(asset) {
@@ -307,11 +422,15 @@ function createAssetRow(asset) {
   position.className = "asset-position";
   position.textContent = "0";
 
+  const posValue = document.createElement("span");
+  posValue.className = "asset-pos-value";
+  posValue.textContent = "$0.00";
+
   const pnl = document.createElement("span");
   pnl.className = "asset-pnl";
   pnl.textContent = "0.00";
 
-  row.append(symbol, price, position, pnl);
+  row.append(symbol, price, position, posValue, pnl);
   row.addEventListener("click", () => selectAsset(asset.id));
   return row;
 }
@@ -388,6 +507,7 @@ function updateAssetsListValues() {
 
     row.querySelector(".asset-price").textContent = formatNumber(asset.price, asset.isYield ? 3 : 2);
     row.querySelector(".asset-position").textContent = String(posData.position.toFixed(0));
+    row.querySelector(".asset-pos-value").textContent = formatCurrency(Math.max(0, posData.position) * asset.price);
 
     const pnlCell = row.querySelector(".asset-pnl");
     pnlCell.textContent = formatSignedCurrency(pnlData);
@@ -611,6 +731,44 @@ socket.on("scenarioError", (payload) => {
 
 buyBtn?.addEventListener("click", () => handleOrder("buy"));
 sellBtn?.addEventListener("click", () => handleOrder("sell"));
+
+portfolioPie?.addEventListener("mousemove", (event) => {
+  const { slices } = computePortfolioSlices();
+  if (!slices.length) {
+    renderPortfolioOverview();
+    return;
+  }
+
+  const rect = portfolioPie.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  const cx = portfolioPie.width / 2;
+  const cy = portfolioPie.height / 2 - 4;
+  const dx = x - cx;
+  const dy = y - cy;
+  const distance = Math.hypot(dx, dy);
+  const radius = Math.min(portfolioPie.width, portfolioPie.height) * 0.35;
+  if (distance > radius + 14) {
+    renderPortfolioOverview();
+    return;
+  }
+
+  let angle = Math.atan2(dy, dx);
+  if (angle < -Math.PI / 2) angle += Math.PI * 2;
+  const normalized = angle + Math.PI / 2;
+
+  let cumulative = 0;
+  let hovered = null;
+  const total = slices.reduce((sum, slice) => sum + slice.value, 0);
+  slices.forEach((slice) => {
+    const part = total > 0 ? (slice.value / total) * Math.PI * 2 : 0;
+    if (!hovered && normalized >= cumulative && normalized <= cumulative + part) hovered = slice.assetId;
+    cumulative += part;
+  });
+  renderPortfolioOverview(hovered);
+});
+
+portfolioPie?.addEventListener("mouseleave", () => renderPortfolioOverview());
 
 joinBtn?.addEventListener("click", () => {
   const name = nameInput.value.trim();

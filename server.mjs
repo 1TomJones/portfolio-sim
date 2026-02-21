@@ -426,10 +426,21 @@ function applyFillToPosition(positionData, qtySigned, price) {
 
 function fillOrder(player, order, asset) {
   const positionData = ensurePosition(player, order.assetId);
-  const qtySigned = order.side === "buy" ? order.qty : -order.qty;
+  const requestedQty = Math.abs(Number(order.qty || 0));
+  let effectiveQty = requestedQty;
+
+  if (order.side === "sell") {
+    effectiveQty = Math.min(effectiveQty, Math.max(0, Number(positionData.position || 0)));
+  }
+
+  if (!Number.isFinite(effectiveQty) || effectiveQty <= 0) {
+    return { filledQty: 0, realizedPnlDelta: 0 };
+  }
+
+  const qtySigned = order.side === "buy" ? effectiveQty : -effectiveQty;
   const previousPosition = positionData.position;
   const realizedPnlDelta = applyFillToPosition(positionData, qtySigned, order.price);
-  const tradedNotional = Math.abs(order.qty) * order.price;
+  const tradedNotional = effectiveQty * order.price;
 
   if (order.side === "buy") {
     player.cash -= tradedNotional;
@@ -442,7 +453,7 @@ function fillOrder(player, order, asset) {
     socket.emit("execution", {
       assetId: order.assetId,
       side: order.side,
-      qty: order.qty,
+      qty: effectiveQty,
       price: order.price,
       previousPosition,
       newPosition: positionData.position,
@@ -458,6 +469,8 @@ function fillOrder(player, order, asset) {
     side: order.side,
     t: Date.now(),
   };
+
+  return { filledQty: effectiveQty, realizedPnlDelta };
 }
 
 function processLimitOrdersForAsset(asset) {
@@ -466,10 +479,10 @@ function processLimitOrdersForAsset(asset) {
     for (const order of player.orders) {
       if (order.assetId !== asset.id || order.type !== "limit") continue;
       if (order.side === "buy" && asset.price <= order.price) {
-        fillOrder(player, order, asset);
-        filledOrderIds.add(order.id);
+        const fill = fillOrder(player, order, asset);
+        if ((fill?.filledQty || 0) > 0) filledOrderIds.add(order.id);
       } else if (order.side === "sell" && asset.price >= order.price) {
-        fillOrder(player, order, asset);
+        const fill = fillOrder(player, order, asset);
         filledOrderIds.add(order.id);
       }
     }
@@ -881,8 +894,14 @@ io.on("connection", (socket) => {
         ack?.({ ok: false, reason: "insufficient-cash" });
         return;
       }
-      fillOrder(player, { assetId: asset.id, side, qty, price: asset.price }, asset);
-      ack?.({ ok: true, filled: true });
+      const owned = Math.max(0, Number(ensurePosition(player, asset.id).position || 0));
+      const effectiveQty = side === "sell" ? Math.min(qty, owned) : qty;
+      if (side === "sell" && effectiveQty <= 0) {
+        ack?.({ ok: true, filled: false, qty: 0 });
+        return;
+      }
+      const fill = fillOrder(player, { assetId: asset.id, side, qty: effectiveQty, price: asset.price }, asset);
+      ack?.({ ok: true, filled: (fill?.filledQty || 0) > 0, qty: fill?.filledQty || 0 });
       return;
     }
 
@@ -896,11 +915,18 @@ io.on("connection", (socket) => {
       return;
     }
 
+    const owned = Math.max(0, Number(ensurePosition(player, asset.id).position || 0));
+    const effectiveQty = side === "sell" ? Math.min(qty, owned) : qty;
+    if (side === "sell" && effectiveQty <= 0) {
+      ack?.({ ok: true, filled: false, qty: 0 });
+      return;
+    }
+
     const orderData = {
       id: `order-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
       assetId: asset.id,
       side,
-      qty,
+      qty: effectiveQty,
       price: quantize(limitPrice, asset.decimals),
       type,
       t: Date.now(),
