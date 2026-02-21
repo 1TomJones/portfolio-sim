@@ -31,6 +31,7 @@ const posLbl = document.getElementById("posLbl");
 const cashLbl = document.getElementById("cashLbl");
 const openPnlLbl = document.getElementById("openPnlLbl");
 const pnlLbl = document.getElementById("pnlLbl");
+const realizedPnlLbl = document.getElementById("realizedPnlLbl");
 const assetsList = document.getElementById("assetsList");
 const assetTabs = document.getElementById("assetTabs");
 const assetSubheading = document.getElementById("assetSubheading");
@@ -415,8 +416,8 @@ function renderPortfolioOverview(hoveredAssetId = null) {
 }
 
 function updatePortfolioSummary() {
-  let totalPnl = 0;
-  let openPnl = 0;
+  let unrealizedPnl = 0;
+  let realizedPnl = 0;
   let positionValue = 0;
 
   positions.forEach((posData, assetId) => {
@@ -424,11 +425,12 @@ function updatePortfolioSummary() {
     const price = asset?.price ?? 0;
     const unrealized = posData.position ? (price - posData.avgCost) * posData.position : 0;
     const realized = posData.realizedPnl || 0;
-    totalPnl += realized + unrealized;
-    openPnl += unrealized;
+    unrealizedPnl += unrealized;
+    realizedPnl += realized;
     positionValue += Math.max(0, posData.position) * price;
   });
 
+  const totalPnl = realizedPnl + unrealizedPnl;
   totalPnlValue = totalPnl;
   highestEquity = Math.max(highestEquity, availableCash + totalPnlValue);
   maxDrawdown = Math.max(maxDrawdown, highestEquity - (availableCash + totalPnlValue));
@@ -436,9 +438,14 @@ function updatePortfolioSummary() {
   posLbl.textContent = formatCurrency(positionValue);
   if (cashLbl) cashLbl.textContent = formatCurrency(availableCash);
   if (openPnlLbl) {
-    openPnlLbl.textContent = formatSignedCurrency(openPnl);
-    openPnlLbl.classList.toggle("positive", openPnl > 0);
-    openPnlLbl.classList.toggle("negative", openPnl < 0);
+    openPnlLbl.textContent = formatSignedCurrency(unrealizedPnl);
+    openPnlLbl.classList.toggle("positive", unrealizedPnl > 0);
+    openPnlLbl.classList.toggle("negative", unrealizedPnl < 0);
+  }
+  if (realizedPnlLbl) {
+    realizedPnlLbl.textContent = formatSignedCurrency(realizedPnl);
+    realizedPnlLbl.classList.toggle("positive", realizedPnl > 0);
+    realizedPnlLbl.classList.toggle("negative", realizedPnl < 0);
   }
   if (pnlLbl) {
     pnlLbl.textContent = formatSignedCurrency(totalPnl);
