@@ -126,6 +126,8 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .assets-header{display:grid;grid-template-columns:minmax(9ch,1.15fr) minmax(8ch,0.9fr) minmax(8ch,0.9fr) minmax(11ch,1.1fr) minmax(11ch,1fr);gap:12px;font-size:0.62rem;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);padding:2px 12px 0}
 .assets-header-num{text-align:right}
 .assets-list{display:flex;flex-direction:column;gap:6px;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
+.assets-list > .asset-row,
+.assets-list > .asset-subsection{flex:0 0 auto}
 .asset-row{display:flex;flex-direction:column;gap:0;align-items:stretch;padding-inline:10px;padding-block:12px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:var(--text);text-align:left;cursor:pointer;overflow:hidden;transition:border-color .2s ease,background .2s ease,box-shadow .2s ease}
 .asset-row-main{display:grid;grid-template-columns:minmax(9ch,1.15fr) minmax(8ch,0.9fr) minmax(8ch,0.9fr) minmax(11ch,1.1fr) minmax(11ch,1fr);gap:12px;align-items:center;min-height:24px}
 .asset-row-detail{display:grid;grid-template-columns:minmax(9ch,1.15fr) auto auto;align-items:center;column-gap:12px;max-height:0;opacity:0;transform:translateY(-4px);margin-top:0;padding-top:0;border-top:1px solid transparent;overflow:hidden;transition:max-height .24s ease,opacity .2s ease,transform .24s ease,margin-top .24s ease,padding-top .24s ease,border-top-color .24s ease}
