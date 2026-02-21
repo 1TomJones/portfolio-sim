@@ -150,8 +150,24 @@ function countryFlagEmoji(countryCode) {
     .join("");
 }
 
+function countryCodeFromLeadingFlag(label = "") {
+  const chars = Array.from(String(label));
+  if (chars.length < 2) return "";
+  const [a, b] = chars;
+  const isRegional = (char) => {
+    const point = char.codePointAt(0);
+    return point >= 0x1f1e6 && point <= 0x1f1ff;
+  };
+  if (!isRegional(a) || !isRegional(b)) return "";
+  const toAscii = (char) => String.fromCharCode(char.codePointAt(0) - 127397);
+  return `${toAscii(a)}${toAscii(b)}`.toUpperCase();
+}
+
 function getCountryCodeForMacroEvent(event = {}) {
   if (typeof event.countryCode === "string" && event.countryCode.length === 2) return event.countryCode.toUpperCase();
+
+  const fromFlag = countryCodeFromLeadingFlag(event.label);
+  if (fromFlag) return fromFlag;
 
   const eventId = String(event.id || "").toLowerCase();
   if (eventId.includes("us") || eventId.includes("fed")) return "US";

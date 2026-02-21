@@ -116,7 +116,7 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .market-layout{display:grid;grid-template-columns:minmax(220px,0.45fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) 300px;gap:0;align-items:stretch;flex:1 1 auto;min-height:0}
 .market-layout .assets-card{grid-column:1;grid-row:1;min-height:0}
 .market-layout .market-chart-card{grid-column:2;grid-row:1;min-height:0}
-.market-layout .insight-stack{grid-column:1 / -1;grid-row:2;display:grid;grid-template-columns:minmax(220px,0.45fr) repeat(2,minmax(0,1fr));gap:0;min-height:300px;max-height:300px}
+.market-layout .insight-stack{grid-column:1 / -1;grid-row:2;display:grid;grid-template-columns:minmax(220px,0.45fr) minmax(0,1fr) minmax(0,1fr);gap:0;min-height:300px;max-height:300px}
 .side-widget{min-width:0;min-height:0;display:flex;flex-direction:column;gap:6px}
 .side-widget-body{display:flex;flex-direction:column;gap:12px;flex:1}
 .side-widget-item{display:flex;flex-direction:column;gap:4px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:8px 10px}
@@ -155,11 +155,15 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .trade-card{grid-column:1;grid-row:1;display:flex;flex-direction:column;gap:8px;min-height:0}
 .placeholder-card{display:flex;flex-direction:column;gap:8px;min-height:0;border:1px dashed rgba(109,168,255,0.35);background:rgba(109,168,255,0.06)}
 .macro-panel{border-style:solid;background:rgba(255,255,255,0.02);min-height:300px}
+.portfolio-panel{border-style:solid;background:rgba(255,255,255,0.02);min-height:300px}
+.portfolio-body{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0;align-items:center;justify-content:center;padding:6px 4px}
+.portfolio-pie{width:100%;max-width:320px;height:auto;aspect-ratio:8 / 5;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);border-radius:6px}
+#portfolioPieDetails,#portfolioPieTotals{text-align:center;margin:0}
 .macro-body{display:flex;flex-direction:column;gap:8px;overflow-y:auto;min-height:0;flex:1;max-height:100%;scrollbar-width:thin}
 .macro-item{display:flex;flex-direction:column;gap:5px;padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);font-size:0.82rem}
 
 .macro-title{display:flex;align-items:center;gap:6px}
-.macro-flag{font-size:0.85rem;line-height:1}
+.macro-flag{font-size:1.28rem;line-height:1}
 .macro-status{font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
 .macro-status.expected{color:#8bc2ff}
 .macro-status.actual{color:#9ef0bb}

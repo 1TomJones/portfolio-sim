@@ -280,6 +280,7 @@ function macroPayload() {
       actualTick: event.actualTick,
       expected: event.expected,
       actual: event.actual,
+      countryCode: event.countryCode,
       status: sim.tick >= event.actualTick ? "actual" : sim.tick >= event.expectationTick ? "expected" : "upcoming",
     })),
     tick: sim.tick,
@@ -545,6 +546,7 @@ function applyMacroEventIfAny() {
       actualTick: event.actualTick,
       expected: event.expected,
       actual: event.actual,
+      countryCode: event.countryCode,
       status: sim.tick >= event.actualTick ? "actual" : "expected",
       tick: sim.tick,
     };

@@ -117,17 +117,30 @@
               <div class="panel-header trade-header">
                 <h3>Order Entry <span id="orderAssetLabel" class="order-asset-label">—</span></h3>
               </div>
-              <div class="panel card placeholder-card macro-panel">
-                <div class="panel-header">
-                  <h3>Official News Release</h3>
-                  <span class="muted small-text">Official release timeline</span>
+            </div>
+
+            <div class="panel card placeholder-card macro-panel">
+              <div class="panel-header">
+                <h3>Official News Release</h3>
+                <span class="muted small-text">Official release timeline</span>
+              </div>
+              <div id="macroFeed" class="macro-body">
+                <div class="macro-item">
+                  <strong>Official news releases</strong>
+                  <span class="muted">Waiting for the first release...</span>
                 </div>
-                <div id="macroFeed" class="macro-body">
-                  <div class="macro-item">
-                    <strong>Official news releases</strong>
-                    <span class="muted">Waiting for the first release...</span>
-                  </div>
-                </div>
+              </div>
+            </div>
+
+            <div class="panel card placeholder-card portfolio-panel">
+              <div class="panel-header">
+                <h3>Portfolio Overview</h3>
+                <span class="muted small-text">Live exposure mix</span>
+              </div>
+              <div class="portfolio-body">
+                <canvas id="portfolioPie" class="portfolio-pie" width="320" height="200" aria-label="Portfolio allocation chart"></canvas>
+                <p id="portfolioPieDetails" class="muted small-text">Buy assets to populate the portfolio overview.</p>
+                <p id="portfolioPieTotals" class="small-text">Commodities: 0.00% · Equities: 0.00%</p>
               </div>
             </div>
           </div>
