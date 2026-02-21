@@ -2,6 +2,7 @@ export const DEFAULT_ENGINE_CONFIG = {
   tickMs: 250,
   leaderboardInterval: 2,
   maxPosition: 200,
+  longOnly: true,
   maxLoss: null,
   startPrice: 250,
   defaultPriceMode: "orderflow",

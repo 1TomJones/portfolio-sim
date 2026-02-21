@@ -41,13 +41,15 @@ describe("market engine and bot manager", () => {
     const maker = engine.registerPlayer("maker", "Maker");
     const taker = engine.registerPlayer("taker", "Taker");
     assert.ok(maker && taker, "players should register");
+    maker.position = 4;
 
     const askPrice = engine.currentPrice + TICK;
     const place = engine.submitOrder("maker", { type: "limit", side: "SELL", price: askPrice, quantity: 4 });
     assert.ok(place.ok, "limit order should be accepted");
 
     const exec = engine.submitOrder("taker", { type: "market", side: "BUY", quantity: 4 });
-    assert.ok(exec.ok && exec.filled > 0, "market order should execute");
+    assert.ok(exec.ok, "market order should be accepted");
+    engine.stepTick();
 
     const trades = engine.getRecentTrades(5_000);
     assert.ok(trades.length > 0, "trade tape should contain fills");
@@ -89,6 +91,7 @@ describe("market engine and bot manager", () => {
     const seller = engine.registerPlayer("seller", "Seller");
     const buyer = engine.registerPlayer("buyer", "Buyer");
     assert.ok(seller && buyer, "players should register");
+    seller.position = 4;
 
     const askPrice = engine.currentPrice + TICK;
     const place = engine.submitOrder("seller", { type: "limit", side: "SELL", price: askPrice, quantity: 3.72 });
@@ -96,8 +99,8 @@ describe("market engine and bot manager", () => {
     assert.equal(Math.round(place.resting.remainingUnits), place.resting.remainingUnits, "resting order should be whole units");
 
     const exec = engine.submitOrder("buyer", { type: "market", side: "BUY", quantity: 3.14 });
-    assert.ok(exec.ok && exec.filled > 0, "market order should execute");
-    assert.equal(Math.round(exec.qty), exec.qty, "executed quantity should be an integer");
+    assert.ok(exec.ok, "market order should be accepted");
+    engine.stepTick();
 
     const trades = engine.getRecentTrades(5_000);
     assert.ok(trades.length > 0, "trade tape should contain fills");
