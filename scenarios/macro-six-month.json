@@ -406,6 +406,28 @@
       }
     },
     {
+      "tick": 2000,
+      "headline": "MAJOR EVENT: Mega-cap tech announces accelerated AI infrastructure spending; enterprise adoption accelerates.",
+      "decay_seconds": 220,
+      "major": true,
+      "assetShocks": {
+        "eq-nvda": 0.08,
+        "eq-msft": 0.04,
+        "eq-goog": 0.03,
+        "eq-amzn": 0.03,
+        "eq-aapl": 0.02,
+        "idx-spx": 0.02,
+        "idx-sx5e": 0.01,
+        "idx-nikkei": 0.01,
+        "cmd-gold": -0.01,
+        "cmd-silver": 0,
+        "cmd-wti": 0.01,
+        "cmd-brent": 0.01,
+        "eq-jpm": 0,
+        "eq-xom": 0.01
+      }
+    },
+    {
       "tick": 4800,
       "headline": "Fed holds rates; expected 25bp cut fails to materialize.",
       "decay_seconds": 180,
@@ -418,6 +440,30 @@
         "cmd-gold": 0.04,
         "cmd-wti": -0.03,
         "cmd-brent": -0.03
+      }
+    },
+    {
+      "tick": 5000,
+      "headline": "MAJOR EVENT: Companies report early AI productivity gains; consumer demand holds up; soft-landing narrative strengthens.",
+      "decay_seconds": 220,
+      "major": true,
+      "assetShocks": {
+        "idx-spx": 0.03,
+        "eq-aapl": 0.03,
+        "eq-msft": 0.02,
+        "eq-amzn": 0.02,
+        "eq-goog": 0.02,
+        "eq-nvda": 0.03,
+        "eq-tsla": 0.02,
+        "eq-jpm": 0.02,
+        "idx-sx5e": 0.02,
+        "idx-ftse100": 0.01,
+        "idx-nikkei": 0.01,
+        "cmd-gold": -0.02,
+        "cmd-silver": -0.01,
+        "cmd-wti": 0.01,
+        "cmd-brent": 0.01,
+        "eq-xom": 0.02
       }
     },
     {
@@ -459,11 +505,60 @@
       }
     },
     {
+      "tick": 9000,
+      "headline": "MAJOR EVENT: China announces major military drills near Taiwan; markets price semiconductor supply chain disruption risk.",
+      "decay_seconds": 240,
+      "major": true,
+      "assetShocks": {
+        "eq-nvda": -0.1,
+        "idx-spx": -0.05,
+        "idx-sx5e": -0.04,
+        "idx-nikkei": -0.04,
+        "idx-csi300": -0.05,
+        "eq-aapl": -0.04,
+        "eq-msft": -0.03,
+        "eq-goog": -0.03,
+        "eq-amzn": -0.02,
+        "eq-tsla": -0.02,
+        "cmd-gold": 0.06,
+        "cmd-silver": 0.03,
+        "cmd-brent": 0.03,
+        "cmd-wti": 0.03,
+        "eq-xom": 0.02,
+        "idx-ftse100": 0.005,
+        "eq-jpm": 0.01
+      }
+    },
+    {
       "tick": 11700,
       "headline": "UK CPI lands in line at 3.2%; cross-asset response muted.",
       "decay_seconds": 120,
       "assetShocks": {
         "idx-ftse100": 0.005
+      }
+    },
+    {
+      "tick": 12000,
+      "headline": "MAJOR EVENT: SpaceX IPO announced; valuation chatter drives liquidity rotation out of mega-cap tech.",
+      "decay_seconds": 220,
+      "major": true,
+      "assetShocks": {
+        "idx-spx": -0.02,
+        "eq-nvda": -0.03,
+        "eq-msft": -0.02,
+        "eq-goog": -0.02,
+        "eq-amzn": -0.01,
+        "eq-aapl": -0.01,
+        "eq-tsla": -0.01,
+        "cmd-gold": 0.02,
+        "cmd-silver": 0.01,
+        "cmd-brent": 0.01,
+        "cmd-wti": 0.01,
+        "eq-xom": 0.01,
+        "eq-jpm": 0,
+        "idx-csi300": -0.01,
+        "idx-sx5e": -0.01,
+        "idx-nikkei": -0.01
       }
     },
     {
@@ -502,6 +597,30 @@
       }
     },
     {
+      "tick": 17000,
+      "headline": "MAJOR EVENT: Taiwan diplomatic talks begin and military drills scale down; supply chain disruption risk fades.",
+      "decay_seconds": 220,
+      "major": true,
+      "assetShocks": {
+        "eq-nvda": 0.08,
+        "idx-spx": 0.05,
+        "eq-aapl": 0.04,
+        "eq-msft": 0.04,
+        "eq-goog": 0.04,
+        "eq-amzn": 0.03,
+        "eq-tsla": 0.03,
+        "idx-sx5e": 0.04,
+        "idx-nikkei": 0.04,
+        "idx-csi300": 0.03,
+        "cmd-gold": -0.05,
+        "cmd-silver": -0.03,
+        "cmd-brent": -0.02,
+        "cmd-wti": -0.02,
+        "eq-xom": -0.01,
+        "eq-jpm": 0.01
+      }
+    },
+    {
       "tick": 18900,
       "headline": "Fed delivers 50bp cut vs 25bp expected in finale.",
       "decay_seconds": 220,
@@ -515,6 +634,31 @@
         "cmd-gold": 0.03,
         "cmd-wti": 0.04,
         "cmd-brent": 0.04
+      }
+    },
+    {
+      "tick": 19500,
+      "headline": "MAJOR EVENT: US launches a major space initiative and contract wave, intensifying the space race with China.",
+      "decay_seconds": 240,
+      "major": true,
+      "assetShocks": {
+        "idx-spx": 0.04,
+        "eq-nvda": 0.04,
+        "eq-msft": 0.03,
+        "eq-goog": 0.02,
+        "eq-amzn": 0.02,
+        "eq-tsla": 0.03,
+        "eq-aapl": 0.01,
+        "idx-sx5e": 0.02,
+        "idx-ftse100": 0.01,
+        "idx-nikkei": 0.02,
+        "idx-csi300": -0.01,
+        "cmd-gold": -0.02,
+        "cmd-silver": -0.01,
+        "cmd-brent": 0.01,
+        "cmd-wti": 0.01,
+        "eq-xom": 0.01,
+        "eq-jpm": 0.01
       }
     },
     {

@@ -305,6 +305,8 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .news-panel{display:flex;flex-direction:column;gap:12px;flex:1;min-height:0}
 .news-body{display:flex;flex-direction:column;gap:12px;flex:1;overflow-y:auto;min-height:0;max-height:100%;scrollbar-width:thin}
 .news-item{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);font-size:0.85rem}
+.major-news-item{border-color:rgba(255,92,92,0.75);background:rgba(255,92,92,0.12)}
+.major-news-flash{animation:major-news-flash 1.15s ease-in-out 3}
 .hud-news-text{font-weight:700;letter-spacing:0.02em;color:#d5e7ff}
 .brand-actions{display:flex;flex-direction:row;align-items:center;gap:10px;min-width:0}
 .brand-metrics{display:flex;align-items:flex-end;gap:18px;flex-wrap:nowrap;min-width:0}
@@ -324,6 +326,11 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .secondary{background:#16233b;border-color:#2f436b}
 .pill{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border-radius:999px;font-size:0.65rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border:1px solid transparent}
 .pill-bot{background:rgba(109,168,255,0.16);color:#a3c4ff;border-color:rgba(109,168,255,0.4)}
+
+@keyframes major-news-flash{
+  0%,100%{box-shadow:none;filter:none}
+  50%{box-shadow:0 0 0 2px rgba(255,92,92,0.65) inset;filter:brightness(1.08)}
+}
 
 .panel-header h3{margin:0}
 .panel h3{margin:0}

@@ -528,6 +528,7 @@ function applyNewsIfAny() {
       headline: nextNews.headline,
       factorShocks,
       assetShocks,
+      major: Boolean(nextNews.major),
       category: macroLinked ? "macro" : "general",
       scenarioId: sim.scenario?.id || null,
     });

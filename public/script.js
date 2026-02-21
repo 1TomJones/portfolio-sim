@@ -196,10 +196,11 @@ function cleanedMacroLabel(label = "") {
   return String(label).replace(/^[\u{1F1E6}-\u{1F1FF}]{2}\s*/u, "").trim();
 }
 
-function pushNewsItem(headline, gameTimeMs, category = "general") {
+function pushNewsItem(headline, gameTimeMs, category = "general", isMajor = false) {
   if (!newsFeed || !headline || category !== "general") return;
   const item = document.createElement("div");
   item.className = "news-item";
+  if (isMajor) item.classList.add("major-news-item", "major-news-flash");
   item.innerHTML = `<strong>${formatGameTime(gameTimeMs)}</strong><span class="muted">${headline}</span>`;
   newsFeed.prepend(item);
 }
@@ -808,7 +809,7 @@ socket.on("portfolio", (payload) => {
 });
 
 socket.on("news", (payload) => {
-  pushNewsItem(payload?.headline, payload?.gameTimeMs, payload?.category);
+  pushNewsItem(payload?.headline, payload?.gameTimeMs, payload?.category, payload?.major);
 });
 
 socket.on("macroEvents", (payload) => {
