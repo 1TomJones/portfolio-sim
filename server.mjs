@@ -113,7 +113,9 @@ function pricePointSize(startPrice) {
   if (price < 500) return 0.25;
   if (price < 1000) return 0.5;
   if (price < 2000) return 1;
-  return 2.5;
+  if (price < 5000) return 2.5;
+  if (price < 10000) return 5;
+  return 10;
 }
 
 function distanceTowardProbability(distanceAbsPct) {

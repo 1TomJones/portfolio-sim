@@ -13,6 +13,7 @@ const assetsList = document.getElementById("adminAssetsList");
 const selectedAssetLabel = document.getElementById("selectedAssetLabel");
 const adminScenarioLabel = document.getElementById("adminScenarioLabel");
 const scenarioSelect = document.getElementById("scenarioSelect");
+const adminNewsFeed = document.getElementById("adminNewsFeed");
 
 let activeTab = "equities";
 let selectedAssetId = null;
@@ -24,6 +25,8 @@ let fairSeries = null;
 let selectedScenarioId = "";
 let currentTick = 0;
 let durationTicks = 21600;
+let newsTimeline = [];
+let selectedScenarioNews = [];
 
 const socket = io({ transports: ["websocket", "polling"], query: { role: "admin" } });
 
@@ -45,6 +48,117 @@ function setPhase(phase) {
 function updateTickBadge() {
   if (!tickBadge) return;
   tickBadge.textContent = `Tick: ${currentTick} / ${durationTicks}`;
+}
+
+
+function asNumber(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function impactPctForNewsItem(item) {
+  const shocks = item?.assetShocks || {};
+  const values = Object.values(shocks).map((value) => Math.abs(Number(value) * 100)).filter(Number.isFinite);
+  return values.length ? Math.max(...values) : 0;
+}
+
+function impactClass(impactPct) {
+  if (impactPct < 1) return "impact-low";
+  if (impactPct < 4) return "impact-light";
+  if (impactPct < 8) return "impact-medium";
+  return "impact-high";
+}
+
+function gameTimeForTick(tick) {
+  return asNumber(tick) * 12 * 60 * 1000;
+}
+
+function formatGameTimeFromTick(tick) {
+  const gameMs = gameTimeForTick(tick);
+  return new Date(gameMs).toLocaleString(undefined, {
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function buildScenarioNewsTimeline() {
+  const macroEntries = selectedScenarioNews.flatMap((event) => {
+    const impactPct = 0;
+    return [
+      {
+        id: `${event.id || event.label}-expected`,
+        tick: asNumber(event.expectationTick),
+        token: "Expected",
+        label: event.label || "Macro release",
+        value: event.expected || "—",
+        impactPct,
+        releaseTick: asNumber(event.expectationTick),
+      },
+      {
+        id: `${event.id || event.label}-actual`,
+        tick: asNumber(event.actualTick),
+        token: "Actual",
+        label: event.label || "Macro release",
+        value: event.actual || "—",
+        impactPct,
+        releaseTick: asNumber(event.actualTick),
+      },
+    ];
+  });
+
+  const generalEntries = (currentScenarioPayload?.news || []).map((item, index) => ({
+    id: `news-${index}-${asNumber(item.tick)}`,
+    tick: asNumber(item.tick),
+    token: "News",
+    label: item.headline || "News",
+    value: item.headline || "—",
+    impactPct: impactPctForNewsItem(item),
+    releaseTick: asNumber(item.tick),
+  }));
+
+  newsTimeline = [...macroEntries, ...generalEntries].sort((a, b) => a.tick - b.tick);
+}
+
+function renderAdminNewsTimeline() {
+  if (!adminNewsFeed) return;
+  adminNewsFeed.innerHTML = "";
+
+  if (!newsTimeline.length) {
+    const empty = document.createElement("div");
+    empty.className = "macro-item";
+    empty.innerHTML = `<strong>No news loaded</strong><span class="muted">Load a scenario to view the full release timeline.</span>`;
+    adminNewsFeed.appendChild(empty);
+    return;
+  }
+
+  newsTimeline.forEach((entry) => {
+    const item = document.createElement("div");
+    const released = currentTick >= entry.releaseTick;
+    item.className = `macro-item admin-news-item ${impactClass(entry.impactPct)}`;
+    if (released) item.classList.add("released");
+
+    item.innerHTML = `<strong>${entry.label}</strong><span class="macro-status ${entry.token.toLowerCase()}">${entry.token} · Tick ${entry.tick} (${formatGameTimeFromTick(entry.tick)})</span><span>${entry.value}</span>`;
+    adminNewsFeed.appendChild(item);
+  });
+}
+
+let currentScenarioPayload = null;
+
+async function loadScenarioNewsTimeline(scenarioId) {
+  if (!scenarioId) return;
+  try {
+    const response = await fetch(`/scenarios/${encodeURIComponent(scenarioId)}.json`, { cache: "no-store" });
+    if (!response.ok) throw new Error("scenario-news-missing");
+    currentScenarioPayload = await response.json();
+    selectedScenarioNews = Array.isArray(currentScenarioPayload?.macroEvents) ? currentScenarioPayload.macroEvents : [];
+  } catch {
+    currentScenarioPayload = null;
+    selectedScenarioNews = [];
+  }
+  buildScenarioNewsTimeline();
+  renderAdminNewsTimeline();
 }
 
 function ensureChart() {
@@ -159,6 +273,7 @@ async function loadScenarios() {
     selectedScenarioId = requestedScenarioId || scenarios[0]?.id || scenarios[0]?.scenario_id || "";
     if (selectedScenarioId) scenarioSelect.value = selectedScenarioId;
     if (adminScenarioLabel) adminScenarioLabel.textContent = `Scenario: ${selectedScenarioId || "none selected"}`;
+    await loadScenarioNewsTimeline(selectedScenarioId);
   } catch {
     setControlStatus("Unable to load scenarios.", "error");
   }
@@ -197,6 +312,7 @@ async function selectScenario() {
     });
     if (!response.ok) throw new Error(`scenario-failed-${response.status}`);
     if (adminScenarioLabel) adminScenarioLabel.textContent = `Scenario: ${selectedScenarioId}`;
+    await loadScenarioNewsTimeline(selectedScenarioId);
     setControlStatus("Scenario loaded. Start when ready.", "success");
   } catch {
     setControlStatus("Could not load scenario.", "error");
@@ -242,6 +358,7 @@ socket.on("adminAssetSnapshot", (payload) => {
   currentTick = Number(payload?.tick || currentTick);
   durationTicks = Number(payload?.durationTicks || durationTicks);
   updateTickBadge();
+  renderAdminNewsTimeline();
   if (payload?.scenario && adminScenarioLabel) {
     adminScenarioLabel.textContent = `Scenario: ${payload.scenario.name || payload.scenario.id} (${payload.scenario.id || ""})`;
     if (scenarioSelect && payload.scenario.id) scenarioSelect.value = payload.scenario.id;
@@ -257,6 +374,7 @@ socket.on("adminAssetTick", (payload) => {
   currentTick = Number(payload?.tick || currentTick);
   durationTicks = Number(payload?.durationTicks || durationTicks);
   updateTickBadge();
+  renderAdminNewsTimeline();
   (payload.assets || []).forEach((update) => {
     const asset = assetMap.get(update.id);
     if (!asset) return;
@@ -276,6 +394,18 @@ socket.on("scenarioError", (payload) => {
   setControlStatus(payload?.message || "Scenario not found.", "error");
 });
 
+
+socket.on("macroEvents", (payload) => {
+  currentTick = Number(payload?.tick || currentTick);
+  updateTickBadge();
+  renderAdminNewsTimeline();
+});
+
+socket.on("news", () => {
+  renderAdminNewsTimeline();
+});
+
 updateTickBadge();
+renderAdminNewsTimeline();
 loadScenarios();
 fetchPlayers();
