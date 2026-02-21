@@ -51,6 +51,10 @@ let candleSeriesApi = null;
 let avgPriceLineCandle = null;
 let chartResizeObserver = null;
 let pendingChartAutofit = false;
+let piePointerInside = false;
+let pieHoveredAssetId = null;
+let lastPortfolioRenderSignature = "";
+let lastPortfolioHoverSignature = "";
 
 function refitChartViewport() {
   if (!chartApi || !candleSeriesApi) return;
@@ -342,6 +346,17 @@ function renderPortfolioOverview(hoveredAssetId = null) {
   if (!ctx) return;
 
   const { slices, total, byCategory } = computePortfolioSlices();
+  const dataSignature = JSON.stringify(
+    slices.map((slice) => [slice.assetId, Number(slice.value.toFixed(2)), Number(slice.pct.toFixed(4))]),
+  );
+  const hoverSignature = hoveredAssetId || "none";
+  const shouldRedraw = dataSignature !== lastPortfolioRenderSignature || hoverSignature !== lastPortfolioHoverSignature;
+
+  if (!shouldRedraw) return;
+
+  lastPortfolioRenderSignature = dataSignature;
+  lastPortfolioHoverSignature = hoverSignature;
+
   const w = portfolioPie.width;
   const h = portfolioPie.height;
   const cx = w / 2;
@@ -431,7 +446,7 @@ function updatePortfolioSummary() {
     pnlLbl.classList.toggle("negative", totalPnl < 0);
   }
 
-  renderPortfolioOverview();
+  renderPortfolioOverview(piePointerInside ? pieHoveredAssetId : null);
 }
 
 function createAssetRow(asset) {
@@ -767,8 +782,10 @@ sellBtn?.addEventListener("click", () => handleOrder("sell"));
 quantityInput?.addEventListener("input", updateOrderValueDisplay);
 
 portfolioPie?.addEventListener("mousemove", (event) => {
+  piePointerInside = true;
   const { slices } = computePortfolioSlices();
   if (!slices.length) {
+    pieHoveredAssetId = null;
     renderPortfolioOverview();
     return;
   }
@@ -783,6 +800,7 @@ portfolioPie?.addEventListener("mousemove", (event) => {
   const distance = Math.hypot(dx, dy);
   const radius = Math.min(portfolioPie.width, portfolioPie.height) * 0.35;
   if (distance > radius + 14) {
+    pieHoveredAssetId = null;
     renderPortfolioOverview();
     return;
   }
@@ -799,10 +817,15 @@ portfolioPie?.addEventListener("mousemove", (event) => {
     if (!hovered && normalized >= cumulative && normalized <= cumulative + part) hovered = slice.assetId;
     cumulative += part;
   });
+  pieHoveredAssetId = hovered;
   renderPortfolioOverview(hovered);
 });
 
-portfolioPie?.addEventListener("mouseleave", () => renderPortfolioOverview());
+portfolioPie?.addEventListener("mouseleave", () => {
+  piePointerInside = false;
+  pieHoveredAssetId = null;
+  renderPortfolioOverview();
+});
 
 joinBtn?.addEventListener("click", () => {
   const name = nameInput.value.trim();
