@@ -294,6 +294,22 @@ function pnlForAsset(asset) {
   return (posData.realizedPnl || 0) + unrealized;
 }
 
+
+function oneMonthChangePct(asset) {
+  if (!asset) return 0;
+  const history = Array.isArray(asset.candles) ? asset.candles : [];
+  const points = history.map((candle) => Number(candle?.close)).filter((value) => Number.isFinite(value));
+  points.push(Number(asset.price));
+
+  const current = points[points.length - 1];
+  const lookbackPeriods = 60;
+  const startIdx = Math.max(0, points.length - 1 - lookbackPeriods);
+  const baseline = points[startIdx];
+
+  if (!Number.isFinite(current) || !Number.isFinite(baseline) || baseline === 0) return 0;
+  return ((current - baseline) / baseline) * 100;
+}
+
 function paletteFromCategory(category = "equities", idx = 0, total = 1) {
   const ratio = total > 1 ? idx / (total - 1) : 0.5;
   if (category === "commodities") {
@@ -470,6 +486,10 @@ function createAssetRow(asset) {
   price.className = "asset-price";
   price.textContent = formatNumber(asset.price, asset.isYield ? 3 : 2);
 
+  const change = document.createElement("span");
+  change.className = "asset-change";
+  change.textContent = "↔ 0.00%";
+
   const position = document.createElement("span");
   position.className = "asset-position";
   position.textContent = "0";
@@ -482,7 +502,7 @@ function createAssetRow(asset) {
   pnl.className = "asset-pnl";
   pnl.textContent = "0.00";
 
-  row.append(symbol, price, position, posValue, pnl);
+  row.append(symbol, price, change, position, posValue, pnl);
   row.addEventListener("click", () => selectAsset(asset.id));
   return row;
 }
@@ -558,6 +578,14 @@ function updateAssetsListValues() {
     const pnlData = pnlForAsset(asset);
 
     row.querySelector(".asset-price").textContent = formatNumber(asset.price, asset.isYield ? 3 : 2);
+
+    const oneMonthPct = oneMonthChangePct(asset);
+    const changeCell = row.querySelector(".asset-change");
+    const arrow = oneMonthPct > 0 ? "↑" : oneMonthPct < 0 ? "↓" : "↔";
+    changeCell.textContent = `${arrow} ${Math.abs(oneMonthPct).toFixed(2)}%`;
+    changeCell.classList.toggle("positive", oneMonthPct > 0);
+    changeCell.classList.toggle("negative", oneMonthPct < 0);
+
     row.querySelector(".asset-position").textContent = String(posData.position.toFixed(0));
     row.querySelector(".asset-pos-value").textContent = formatCurrency(Math.max(0, posData.position) * asset.price);
 
