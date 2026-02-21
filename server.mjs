@@ -41,6 +41,10 @@ const PORT = process.env.PORT || 10000;
 const DEFAULT_CASH = 10000000;
 const SHORTABLE_ASSET_IDS = new Set(["cmd-brent", "cmd-wti"]);
 const STARTING_CAPITAL = DEFAULT_CASH;
+const ANNUAL_RISK_FREE_RATE_PCT = 5;
+const SIMULATION_LENGTH_YEARS = 0.5;
+const RISK_FREE_RETURN_PCT = ANNUAL_RISK_FREE_RATE_PCT * SIMULATION_LENGTH_YEARS;
+const GRACE_PERIOD_CANDLES = 60;
 const scenariosPath = path.join(__dirname, "scenarios");
 const metadataPath = path.join(__dirname, "public", "meta", "scenarios.json");
 const fallbackScenarioId = process.env.DEFAULT_SCENARIO_ID || "default";
@@ -515,16 +519,19 @@ function computePlayerMetrics(player) {
   }
 
   const volatilityPct = stdDev(candleReturns);
-  const sharpe = Math.abs(volatilityPct) < Number.EPSILON ? returnPct : returnPct / volatilityPct;
+  const excessReturnPct = returnPct - RISK_FREE_RETURN_PCT;
+  const sharpe = Math.abs(volatilityPct) < Number.EPSILON ? excessReturnPct : excessReturnPct / volatilityPct;
 
-  const avgInvested = average(history.map((entry) => Number(entry.investedPct || 0)));
+  const historyAfterGracePeriod = history.filter((_, index) => index + 1 > GRACE_PERIOD_CANDLES);
+
+  const avgInvested = average(historyAfterGracePeriod.map((entry) => Number(entry.investedPct || 0)));
   let investmentScore = 0;
   if (avgInvested >= 90) investmentScore = 100;
   else if (avgInvested >= 80) investmentScore = 100 - (90 - avgInvested) * 5;
   else investmentScore = 50 - (80 - avgInvested) * 2;
   investmentScore = Math.max(0, investmentScore);
 
-  const outsideBandSeries = history.map((entry) => {
+  const outsideBandSeries = historyAfterGracePeriod.map((entry) => {
     const eq = Number(entry.equitiesPct || 0);
     const cmd = Number(entry.commoditiesPct || 0);
     const eqOutside = Math.max(0, 50 - eq) + Math.max(0, eq - 80);
