@@ -160,6 +160,9 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .macro-panel{border-style:solid;background:rgba(255,255,255,0.02)}
 .macro-body{display:flex;flex-direction:column;gap:8px;overflow-y:auto;min-height:0;flex:1;max-height:100%;scrollbar-width:thin}
 .macro-item{display:flex;flex-direction:column;gap:5px;padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);font-size:0.82rem}
+
+.macro-title{display:flex;align-items:center;gap:6px}
+.macro-flag{font-size:0.85rem;line-height:1}
 .macro-status{font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
 .macro-status.expected{color:#8bc2ff}
 .macro-status.actual{color:#9ef0bb}

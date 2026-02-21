@@ -1,7 +1,7 @@
 {
   "id": "macro-six-month",
-  "name": "Macro Expectations vs Actuals (6M)",
-  "description": "Six in-game months of macro expectation releases vs actual outcomes.",
+  "name": "Official News Release vs Actuals (6M)",
+  "description": "Six in-game months of official news releases vs actual outcomes.",
   "version": "1.0.0",
   "tickMs": 100,
   "ticksPerCandle": 60,

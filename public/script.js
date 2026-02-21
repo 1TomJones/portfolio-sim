@@ -138,6 +138,39 @@ async function validateScenario() {
   }
 }
 
+function countryFlagEmoji(countryCode) {
+  if (!countryCode || countryCode.length !== 2) return "";
+  return countryCode
+    .toUpperCase()
+    .split("")
+    .map((char) => String.fromCodePoint(127397 + char.charCodeAt(0)))
+    .join("");
+}
+
+function getCountryCodeForMacroEvent(event = {}) {
+  if (typeof event.countryCode === "string" && event.countryCode.length === 2) return event.countryCode.toUpperCase();
+
+  const eventId = String(event.id || "").toLowerCase();
+  if (eventId.includes("us") || eventId.includes("fed")) return "US";
+  if (eventId.includes("china")) return "CN";
+  if (eventId.includes("ecb")) return "EU";
+  if (eventId.includes("uk")) return "GB";
+  if (eventId.includes("boj") || eventId.includes("japan")) return "JP";
+
+  const label = String(event.label || "").toLowerCase();
+  if (label.includes("us") || label.includes("federal reserve")) return "US";
+  if (label.includes("china")) return "CN";
+  if (label.includes("ecb") || label.includes("euro")) return "EU";
+  if (label.includes("uk") || label.includes("brit")) return "GB";
+  if (label.includes("boj") || label.includes("japan")) return "JP";
+
+  return "";
+}
+
+function cleanedMacroLabel(label = "") {
+  return String(label).replace(/^[\u{1F1E6}-\u{1F1FF}]{2}\s*/u, "").trim();
+}
+
 function pushNewsItem(headline, gameTimeMs, category = "general") {
   if (!newsFeed || !headline || category !== "general") return;
   const item = document.createElement("div");
@@ -159,7 +192,7 @@ function renderMacroEvents({ scrollToTop = false } = {}) {
   if (!sorted.length) {
     const placeholder = document.createElement("div");
     placeholder.className = "macro-item";
-    placeholder.innerHTML = `<strong>Calendar feed</strong><span class="muted">Waiting for the first expectation release...</span>`;
+    placeholder.innerHTML = `<strong>Official news releases</strong><span class="muted">Waiting for the first release...</span>`;
     macroFeed.appendChild(placeholder);
     return;
   }
@@ -179,7 +212,14 @@ function renderMacroEvents({ scrollToTop = false } = {}) {
     const expectedLine = `<span class="macro-status expected">Expected (${expectedTimeLabel})</span><span>${event.expected}</span>`;
     const actualLine = `<span class="macro-status actual">Actual (${actualTimeLabel})</span><span>${isActualReleased ? event.actual : "-"}</span>`;
 
-    item.innerHTML = `<strong>${event.label}</strong>${expectedLine}${actualLine}`;
+    const countryCode = getCountryCodeForMacroEvent(event);
+    const flag = countryFlagEmoji(countryCode);
+    const eventLabel = cleanedMacroLabel(event.label);
+    const titleLine = flag
+      ? `<strong class="macro-title"><span class="macro-flag" aria-hidden="true">${flag}</span><span>${eventLabel}</span></strong>`
+      : `<strong>${eventLabel}</strong>`;
+
+    item.innerHTML = `${titleLine}${expectedLine}${actualLine}`;
     macroFeed.appendChild(item);
   });
 
