@@ -46,12 +46,23 @@ let chartApi = null;
 let candleSeriesApi = null;
 let avgPriceLineCandle = null;
 let chartResizeObserver = null;
+let pendingChartAutofit = false;
 
 function refitChartViewport() {
   if (!chartApi || !candleSeriesApi) return;
   chartApi.timeScale().fitContent();
   chartApi.timeScale().scrollToRealTime();
   chartApi.priceScale("right").applyOptions({ autoScale: true });
+}
+
+function scheduleChartAutofitOnNextTick() {
+  pendingChartAutofit = true;
+}
+
+function runPendingChartAutofit() {
+  if (!pendingChartAutofit) return;
+  refitChartViewport();
+  pendingChartAutofit = false;
 }
 
 let assets = [];
@@ -156,17 +167,16 @@ function renderMacroEvents() {
     const item = document.createElement("div");
     item.className = "macro-item";
 
-    const flashWindow = event.status === "expected" && Number(event.actualTick) - Number(currentTick) <= 10 && Number(event.actualTick) - Number(currentTick) >= 0;
+    const isActualReleased = Number(currentTick) >= Number(event.actualTick);
+    const flashWindow = !isActualReleased && Number(event.actualTick) - Number(currentTick) <= 10 && Number(event.actualTick) - Number(currentTick) >= 0;
     if (flashWindow) item.classList.add("flash-alert");
 
     const actualTimeLabel = formatGameTime(gameTimeForTick(event.actualTick));
     const expectedTimeLabel = formatGameTime(gameTimeForTick(event.expectationTick));
-    const statusLine =
-      event.status === "actual"
-        ? `<span class="macro-status actual">Actual (${actualTimeLabel})</span><span>${event.actual}</span>`
-        : `<span class="macro-status expected">Expected (${expectedTimeLabel})</span><span>${event.expected}</span>`;
+    const expectedLine = `<span class="macro-status expected">Expected (${expectedTimeLabel})</span><span>${event.expected}</span>`;
+    const actualLine = `<span class="macro-status actual">Actual (${actualTimeLabel})</span><span>${isActualReleased ? event.actual : "-"}</span>`;
 
-    item.innerHTML = `<strong>${event.label}</strong>${statusLine}`;
+    item.innerHTML = `<strong>${event.label}</strong>${expectedLine}${actualLine}`;
     macroFeed.appendChild(item);
   });
 
@@ -408,7 +418,7 @@ function selectAsset(assetId) {
   const candleData = [...(asset.candles || [])];
   if (asset.candle) candleData.push(asset.candle);
   candleSeriesApi?.setData(candleData);
-  refitChartViewport();
+  scheduleChartAutofitOnNextTick();
   updateAverageLine(asset);
 }
 
@@ -416,7 +426,7 @@ function updateChartForAsset(asset) {
   if (!candleSeriesApi || selectedAssetId !== asset.id) return;
   if (asset.completedCandle) candleSeriesApi.update(asset.completedCandle);
   if (asset.candle) candleSeriesApi.update(asset.candle);
-  refitChartViewport();
+  runPendingChartAutofit();
 }
 
 function renderRoster(players = []) {

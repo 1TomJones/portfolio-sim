@@ -505,12 +505,9 @@ function applyMacroEventIfAny() {
 }
 
 function evolveFactors() {
-  const commonRisk = (Math.random() - 0.5) * sim.simCfg.baseNoise;
-  for (const [name, factor] of Object.entries(sim.factors)) {
+  for (const factor of Object.values(sim.factors)) {
     const drift = -factor.level * (1 - factor.decay);
-    const idio = (Math.random() - 0.5) * factor.vol;
-    const commonWeight = name === "globalRisk" ? 0.9 : 0.4;
-    factor.level += drift + idio + commonRisk * commonWeight;
+    factor.level += drift;
   }
 }
 
@@ -527,24 +524,8 @@ function computeFairValue(asset) {
 function computeDirectionalReturn(asset) {
   const fv = Math.max(asset.fairValue, 0.01);
   const price = Math.max(asset.price, 0.01);
-  const d = (price - fv) / fv;
-  const p = Math.abs(d) * 100;
-  const excessPct = Math.max(0, p - 2);
-
-  let probUp = 0.5;
-  if (p > 2) {
-    const probabilityShift = excessPct / 100;
-    if (price > fv) {
-      probUp -= probabilityShift;
-    } else if (price < fv) {
-      probUp += probabilityShift;
-    }
-  }
-  probUp = clamp(probUp, 0.05, 0.95);
-  const moveDirection = Math.random() < probUp ? 1 : -1;
-  const baselineStep = sim.simCfg.baseNoise * (0.45 + Math.random() * 0.75);
-  const distanceStep = Math.min(0.018, excessPct / 250);
-  return moveDirection * (baselineStep + distanceStep);
+  const distancePct = (fv - price) / fv;
+  return clamp(distancePct, -0.018, 0.018);
 }
 
 function stepTick() {
@@ -556,18 +537,12 @@ function stepTick() {
 
   const updates = [];
   const adminUpdates = [];
-  const commonNoise = (Math.random() - 0.5) * sim.simCfg.baseNoise * 0.8;
-  const categoryNoise = new Map();
 
   for (const asset of sim.assets) {
     asset.fairValue = computeFairValue(asset);
 
-    if (!categoryNoise.has(asset.category)) {
-      categoryNoise.set(asset.category, (Math.random() - 0.5) * sim.simCfg.baseNoise * 0.9);
-    }
     const directionalReturn = computeDirectionalReturn(asset);
-    const idioNoise = (Math.random() - 0.5) * sim.simCfg.baseNoise * 0.5;
-    const nextReturn = directionalReturn + commonNoise + categoryNoise.get(asset.category) + idioNoise;
+    const nextReturn = directionalReturn;
     asset.price = quantize(Math.max(0.01, asset.price * (1 + nextReturn)), asset.decimals);
 
     if (!asset.currentCandle) {
