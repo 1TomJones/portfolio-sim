@@ -508,35 +508,21 @@ function ensurePosition(player, assetId) {
   return player.positions[assetId];
 }
 
+function ensureCashBuckets(player) {
+  if (!Number.isFinite(player.cash)) player.cash = 0;
+  if (!Number.isFinite(player.shortProceedsLocked)) player.shortProceedsLocked = 0;
+}
+
 function canShortAsset(asset) {
   return sim.scenario?.id === "macro-six-month" && SHORTABLE_ASSET_IDS.has(asset?.id);
 }
 
-function cashDeltaForTrade(side, qty, price, positionInput = 0) {
-  const normalizedSide = String(side || "").toLowerCase();
+function tradeCashRequirement(_player, _assetId, side, qty, price) {
+  const normalizedSide = String(side || "").toLowerCase() === "sell" ? "sell" : "buy";
+  if (normalizedSide !== "buy") return 0;
   const tradeQty = Math.max(0, Number(qty || 0));
   const unitPrice = Math.max(0, Number(price || 0));
-  const position = Number(positionInput || 0);
-
-  if (normalizedSide === "buy") {
-    const shortCoveredQty = Math.min(Math.max(0, -position), tradeQty);
-    const longOpenedQty = Math.max(0, tradeQty - shortCoveredQty);
-    return shortCoveredQty * unitPrice - longOpenedQty * unitPrice;
-  }
-
-  if (normalizedSide === "sell") {
-    const longClosedQty = Math.min(Math.max(0, position), tradeQty);
-    const shortOpenedQty = Math.max(0, tradeQty - longClosedQty);
-    return longClosedQty * unitPrice - shortOpenedQty * unitPrice;
-  }
-
-  return 0;
-}
-
-function tradeCashRequirement(player, assetId, side, qty, price) {
-  const currentPosition = Number(player?.positions?.[assetId]?.position || 0);
-  const projectedCashDelta = cashDeltaForTrade(side, qty, price, currentPosition);
-  return Math.max(0, -projectedCashDelta);
+  return tradeQty * unitPrice;
 }
 
 function computePositionPnl(positionData, assetPrice) {
@@ -562,13 +548,14 @@ function categoryExposureFromPositions(player) {
 }
 
 function computePlayerPortfolioValue(player) {
+  ensureCashBuckets(player);
   let holdingsValue = 0;
   for (const [assetId, data] of Object.entries(player.positions || {})) {
     const asset = sim.assets.find((item) => item.id === assetId);
     if (!asset) continue;
     holdingsValue += Number(data.position || 0) * Number(asset.price || 0);
   }
-  return Number(player.cash || 0) + holdingsValue;
+  return Number(player.cash || 0) + Number(player.shortProceedsLocked || 0) + holdingsValue;
 }
 
 function average(values) {
@@ -778,6 +765,7 @@ function broadcastLeaderboard() {
 }
 
 function publishPortfolio(player) {
+  ensureCashBuckets(player);
   const positions = Object.entries(player.positions).map(([assetId, data]) => ({
     assetId,
     position: data.position,
@@ -787,36 +775,105 @@ function publishPortfolio(player) {
   }));
   const socket = io.sockets.sockets.get(player.id);
   if (socket) {
-    socket.emit("portfolio", { positions, cash: player.cash });
+    socket.emit("portfolio", {
+      positions,
+      cash: player.cash,
+      totalEquity: computePlayerPortfolioValue(player),
+    });
     socket.emit("openOrders", { orders: player.orders });
   }
 }
 
-function applyFillToPosition(positionData, qtySigned, price) {
-  const { position, avgCost } = positionData;
-  const nextPos = position + qtySigned;
+function applyFillToPositionAndCash(player, positionData, normalizedSide, qty, price, shortable) {
+  ensureCashBuckets(player);
+  const tradeQty = Math.max(0, Number(qty || 0));
+  const unitPrice = Math.max(0, Number(price || 0));
+  if (!tradeQty) return 0;
 
-  if (position === 0 || Math.sign(position) === Math.sign(qtySigned)) {
+  const previousPosition = Number(positionData.position || 0);
+  const avgCost = Number(positionData.avgCost || 0);
+
+  if (normalizedSide === "buy") {
+    const totalCost = tradeQty * unitPrice;
+    player.cash -= totalCost;
+
+    if (shortable && previousPosition < 0) {
+      const sharesCovered = Math.min(tradeQty, Math.abs(previousPosition));
+      if (sharesCovered > 0) {
+        const realizedDelta = (avgCost - unitPrice) * sharesCovered;
+        positionData.realizedPnl = (positionData.realizedPnl || 0) + realizedDelta;
+        player.shortProceedsLocked -= avgCost * sharesCovered;
+      }
+    }
+
+    const nextPos = previousPosition + tradeQty;
+    if (previousPosition >= 0) {
+      positionData.position = nextPos;
+      positionData.avgCost = nextPos === 0 ? 0 : (previousPosition * avgCost + tradeQty * unitPrice) / nextPos;
+      return 0;
+    }
+
+    if (nextPos < 0) {
+      positionData.position = nextPos;
+      return 0;
+    }
+
+    if (nextPos === 0) {
+      positionData.position = 0;
+      positionData.avgCost = 0;
+      return 0;
+    }
+
+    const longOpenedQty = nextPos;
     positionData.position = nextPos;
-    positionData.avgCost = nextPos === 0 ? 0 : (position * avgCost + qtySigned * price) / nextPos;
+    positionData.avgCost = longOpenedQty > 0 ? unitPrice : 0;
     return 0;
   }
 
-  const closingQty = Math.min(Math.abs(position), Math.abs(qtySigned));
-  const realizedDelta = (price - avgCost) * closingQty * Math.sign(position);
-  positionData.realizedPnl = (positionData.realizedPnl || 0) + realizedDelta;
+  const nextPos = previousPosition - tradeQty;
+  if (previousPosition > 0) {
+    const sharesSoldFromLong = Math.min(previousPosition, tradeQty);
+    if (sharesSoldFromLong > 0) {
+      const realizedDelta = (unitPrice - avgCost) * sharesSoldFromLong;
+      positionData.realizedPnl = (positionData.realizedPnl || 0) + realizedDelta;
+      player.cash += sharesSoldFromLong * unitPrice;
+    }
 
-  if (nextPos === 0) {
-    positionData.position = 0;
-    positionData.avgCost = 0;
-  } else if (Math.sign(nextPos) === Math.sign(position)) {
+    const sharesSoldIntoShort = Math.max(0, tradeQty - previousPosition);
+    if (sharesSoldIntoShort > 0) {
+      if (shortable) player.shortProceedsLocked += sharesSoldIntoShort * unitPrice;
+      else player.cash += sharesSoldIntoShort * unitPrice;
+    }
+
+    if (nextPos > 0) {
+      positionData.position = nextPos;
+      return 0;
+    }
+    if (nextPos === 0) {
+      positionData.position = 0;
+      positionData.avgCost = 0;
+      return 0;
+    }
+
     positionData.position = nextPos;
-  } else {
-    positionData.position = nextPos;
-    positionData.avgCost = price;
+    positionData.avgCost = unitPrice;
+    return 0;
   }
 
-  return realizedDelta;
+  if (previousPosition === 0) {
+    if (shortable) {
+      player.shortProceedsLocked += tradeQty * unitPrice;
+      positionData.position = -tradeQty;
+      positionData.avgCost = unitPrice;
+    }
+    return 0;
+  }
+
+  const totalShortSize = Math.abs(previousPosition) + tradeQty;
+  if (shortable) player.shortProceedsLocked += tradeQty * unitPrice;
+  positionData.position = nextPos;
+  positionData.avgCost = (Math.abs(previousPosition) * avgCost + tradeQty * unitPrice) / totalShortSize;
+  return 0;
 }
 
 function fillOrder(player, order, asset) {
@@ -834,16 +891,17 @@ function fillOrder(player, order, asset) {
     return { filledQty: 0, realizedPnlDelta: 0 };
   }
 
-  const qtySigned = normalizedSide === "buy" ? effectiveQty : -effectiveQty;
+  ensureCashBuckets(player);
   const previousPosition = Number(positionData.position || 0);
-  const cashDelta = cashDeltaForTrade(normalizedSide, effectiveQty, order.price, previousPosition);
+  const totalCost = effectiveQty * Number(order.price || 0);
 
-  if (cashDelta < 0 && Number(player.cash || 0) + cashDelta < 0) {
+  if (normalizedSide === "buy" && Number(player.cash || 0) < totalCost) {
     return { filledQty: 0, realizedPnlDelta: 0 };
   }
 
-  const realizedPnlDelta = applyFillToPosition(positionData, qtySigned, order.price);
-  player.cash += cashDelta;
+  const realizedBefore = Number(positionData.realizedPnl || 0);
+  applyFillToPositionAndCash(player, positionData, normalizedSide, effectiveQty, order.price, shortable);
+  const realizedPnlDelta = Number(positionData.realizedPnl || 0) - realizedBefore;
 
   const socket = io.sockets.sockets.get(player.id);
   if (socket) {
@@ -1341,6 +1399,7 @@ io.on("connection", (socket) => {
       positions: {},
       orders: [],
       cash: DEFAULT_CASH,
+      shortProceedsLocked: 0,
       joinedAt: new Date().toISOString(),
       status: "active",
       latestScore: null,
