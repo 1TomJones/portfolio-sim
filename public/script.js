@@ -27,7 +27,7 @@ const nameInput = document.getElementById("nameInput");
 const joinBtn = document.getElementById("joinBtn");
 const joinMsg = document.getElementById("joinMsg");
 const connectionBadge = document.getElementById("connectionBadge");
-const posLbl = document.getElementById("posLbl");
+const equityLbl = document.getElementById("equityLbl");
 const cashLbl = document.getElementById("cashLbl");
 const openPnlLbl = document.getElementById("openPnlLbl");
 const pnlLbl = document.getElementById("pnlLbl");
@@ -84,6 +84,7 @@ let selectedAssetId = null;
 let activeTab = "equities";
 let positions = new Map();
 let availableCash = 10000000;
+let totalEquity = NaN;
 let totalPnlValue = 0;
 let highestEquity = availableCash;
 let maxDrawdown = 0;
@@ -624,7 +625,6 @@ function renderPortfolioOverview(hoveredAssetId = null) {
 function updatePortfolioSummary() {
   let unrealizedPnl = 0;
   let realizedPnl = 0;
-  let positionValue = 0;
 
   positions.forEach((posData, assetId) => {
     const asset = assetMap.get(assetId);
@@ -633,15 +633,21 @@ function updatePortfolioSummary() {
     const realized = posData.realizedPnl || 0;
     unrealizedPnl += unrealized;
     realizedPnl += realized;
-    positionValue += Math.abs(Number(posData.position || 0)) * price;
   });
 
   const totalPnl = realizedPnl + unrealizedPnl;
   totalPnlValue = totalPnl;
-  highestEquity = Math.max(highestEquity, availableCash + totalPnlValue);
-  maxDrawdown = Math.max(maxDrawdown, highestEquity - (availableCash + totalPnlValue));
+  const computedEquity = availableCash + Array.from(positions.entries()).reduce((sum, [assetId, posData]) => {
+    const asset = assetMap.get(assetId);
+    const price = asset?.price ?? 0;
+    return sum + Number(posData.position || 0) * price;
+  }, 0);
+  const displayEquity = Number.isFinite(totalEquity) ? totalEquity : computedEquity;
 
-  posLbl.textContent = formatCurrency(positionValue);
+  highestEquity = Math.max(highestEquity, displayEquity);
+  maxDrawdown = Math.max(maxDrawdown, highestEquity - displayEquity);
+
+  if (equityLbl) equityLbl.textContent = formatCurrency(displayEquity);
   if (cashLbl) cashLbl.textContent = formatCurrency(availableCash);
   if (openPnlLbl) {
     openPnlLbl.textContent = formatSignedCurrency(unrealizedPnl);
@@ -1015,6 +1021,7 @@ socket.on("portfolio", (payload) => {
     });
   });
   if (Number.isFinite(payload?.cash)) availableCash = payload.cash;
+  totalEquity = Number.isFinite(payload?.totalEquity) ? payload.totalEquity : NaN;
   renderAssetsList();
   updateAssetsListValues();
 });
