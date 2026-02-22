@@ -193,6 +193,7 @@ function createAssetState(assetDef, simCfg) {
     name: assetDef.name,
     category: assetDef.category,
     group: assetDef.group || null,
+    listingTick: Number.isFinite(Number(assetDef.listingTick)) ? Number(assetDef.listingTick) : null,
     isYield: Boolean(assetDef.isYield),
     decimals: displayDecimals,
     pointSize,
@@ -214,6 +215,13 @@ function createAssetState(assetDef, simCfg) {
     ticksInCandle: 0,
     nextCandleTime: lastCandleTime + stepSeconds,
   };
+}
+
+function isAssetListed(asset, tick = sim.tick) {
+  if (!asset) return false;
+  const listingTick = Number(asset.listingTick);
+  if (!Number.isFinite(listingTick)) return true;
+  return Number(tick) >= listingTick;
 }
 
 const TICKS_PER_MONTH = 3600;
@@ -974,20 +982,23 @@ function stepTick() {
 
     processLimitOrdersForAsset(asset);
 
+    const justListed = Number.isFinite(asset.listingTick) && sim.tick === asset.listingTick;
     const shared = {
       id: asset.id,
       symbol: asset.symbol,
       name: asset.name,
       category: asset.category,
       group: asset.group,
+      listingTick: asset.listingTick,
       isYield: asset.isYield,
       price: asset.price,
       candle: asset.currentCandle,
       completedCandle,
       lastTrade: asset.lastTrade || null,
+      ...(justListed ? { candles: asset.candles } : {}),
     };
 
-    updates.push(shared);
+    if (isAssetListed(asset)) updates.push(shared);
     adminUpdates.push({
       ...shared,
       fairValue: asset.fairValue,
@@ -1028,12 +1039,13 @@ function setPhase(nextPhase) {
 }
 
 function initialAssetPayload() {
-  return sim.assets.map((asset) => ({
+  return sim.assets.filter((asset) => isAssetListed(asset)).map((asset) => ({
     id: asset.id,
     symbol: asset.symbol,
     name: asset.name,
     category: asset.category,
     group: asset.group,
+    listingTick: asset.listingTick,
     isYield: asset.isYield,
     price: asset.price,
     candles: asset.candles,
@@ -1043,7 +1055,19 @@ function initialAssetPayload() {
 }
 
 function initialAdminAssetPayload() {
-  const base = initialAssetPayload();
+  const base = sim.assets.map((asset) => ({
+    id: asset.id,
+    symbol: asset.symbol,
+    name: asset.name,
+    category: asset.category,
+    group: asset.group,
+    listingTick: asset.listingTick,
+    isYield: asset.isYield,
+    price: asset.price,
+    candles: asset.candles,
+    candle: asset.currentCandle,
+    simStartMs: sim.simStartMs,
+  }));
   return base.map((item) => {
     const state = sim.assets.find((asset) => asset.id === item.id);
     return {
@@ -1225,6 +1249,10 @@ io.on("connection", (socket) => {
     const asset = sim.assets.find((item) => item.id === order?.assetId);
     if (!asset) {
       ack?.({ ok: false, reason: "unknown-asset" });
+      return;
+    }
+    if (!isAssetListed(asset)) {
+      ack?.({ ok: false, reason: "asset-not-listed" });
       return;
     }
 

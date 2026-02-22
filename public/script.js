@@ -779,11 +779,25 @@ socket.on("assetTick", (payload) => {
   currentTick = Number(payload?.tick || currentTick);
   updateGameDateDisplay();
   (payload.assets || []).forEach((update) => {
-    const asset = assetMap.get(update.id);
-    if (!asset) return;
+    let asset = assetMap.get(update.id);
+    if (!asset) {
+      const listedAsset = {
+        ...update,
+        candles: Array.isArray(update.candles) ? update.candles : [],
+      };
+      assets.push(listedAsset);
+      assetMap.set(listedAsset.id, listedAsset);
+      renderAssetTabs();
+      renderAssetsList();
+      if (!selectedAssetId) selectAsset(listedAsset.id);
+      asset = listedAsset;
+    }
     asset.price = update.price;
     asset.candle = update.candle;
     asset.completedCandle = update.completedCandle;
+    if (Array.isArray(update.candles) && update.candles.length) {
+      asset.candles = update.candles;
+    }
     if (update.completedCandle) {
       asset.candles.push(update.completedCandle);
     }
