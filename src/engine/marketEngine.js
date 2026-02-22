@@ -1155,7 +1155,9 @@ export class MarketEngine {
     const prev = player.position;
     const minPos = this.config.longOnly !== false ? 0 : -maxPos;
     const next = clamp(prev + signedQty, minPos, maxPos);
-    const actual = next - prev;
+    let actual = next - prev;
+    actual = this._clipSignedQtyToAvailableCash(player, actual, price);
+    const cashConstrainedNext = prev + actual;
     if (Math.abs(actual) <= 1e-9) return 0;
 
     const prevSign = Math.sign(prev);
@@ -1168,8 +1170,8 @@ export class MarketEngine {
 
     const prevLong = Math.max(0, prev);
     const prevShort = Math.max(0, -prev);
-    const nextLong = Math.max(0, next);
-    const nextShort = Math.max(0, -next);
+    const nextLong = Math.max(0, cashConstrainedNext);
+    const nextShort = Math.max(0, -cashConstrainedNext);
 
     const longClosed = Math.max(0, prevLong - nextLong);
     const longOpened = Math.max(0, nextLong - prevLong);
@@ -1179,14 +1181,14 @@ export class MarketEngine {
     const cashDelta =
       (longClosed + shortCovered - longOpened - shortOpened) * Number(price || 0);
     player.cash += cashDelta;
-    const isCrossing = prev !== 0 && Math.sign(prev) !== Math.sign(next);
+    const isCrossing = prev !== 0 && Math.sign(prev) !== Math.sign(cashConstrainedNext);
 
-    if (Math.abs(next) < 1e-6) {
+    if (Math.abs(cashConstrainedNext) < 1e-6) {
       player.avgPrice = null;
     } else if (Math.abs(prev) < 1e-6 || isCrossing) {
       player.avgPrice = price;
-    } else if (Math.sign(prev) === Math.sign(next)) {
-      if (Math.abs(next) > Math.abs(prev)) {
+    } else if (Math.sign(prev) === Math.sign(cashConstrainedNext)) {
+      if (Math.abs(cashConstrainedNext) > Math.abs(prev)) {
         player.avgPrice = averagePrice({
           previousAvg: player.avgPrice,
           previousQty: prev,
@@ -1196,7 +1198,7 @@ export class MarketEngine {
       }
     }
 
-    player.position = next;
+    player.position = cashConstrainedNext;
     this.updatePnl(player);
     if (player?.id) {
       this.executionEvents.push({
@@ -1207,6 +1209,52 @@ export class MarketEngine {
       });
     }
     return actual;
+  }
+
+  _cashAfterExecution(player, signedQty, price) {
+    const prev = Number(player?.position ?? 0);
+    const next = prev + signedQty;
+    const prevLong = Math.max(0, prev);
+    const prevShort = Math.max(0, -prev);
+    const nextLong = Math.max(0, next);
+    const nextShort = Math.max(0, -next);
+
+    const longClosed = Math.max(0, prevLong - nextLong);
+    const longOpened = Math.max(0, nextLong - prevLong);
+    const shortOpened = Math.max(0, nextShort - prevShort);
+    const shortCovered = Math.max(0, prevShort - nextShort);
+
+    const cashDelta =
+      (longClosed + shortCovered - longOpened - shortOpened) * Number(price || 0);
+    return Number(player?.cash || 0) + cashDelta;
+  }
+
+  _clipSignedQtyToAvailableCash(player, signedQty, price) {
+    const target = Math.abs(Number(signedQty) || 0);
+    const direction = Math.sign(Number(signedQty) || 0);
+    const unitPrice = Number(price || 0);
+    if (target <= 1e-9 || direction === 0) return 0;
+    if (!(unitPrice > 0)) return 0;
+    if (this._cashAfterExecution(player, direction * target, unitPrice) >= -1e-9) {
+      return direction * target;
+    }
+
+    let best = 0;
+    const whole = Math.floor(target);
+    for (let qty = 1; qty <= whole; qty += 1) {
+      if (this._cashAfterExecution(player, direction * qty, unitPrice) >= -1e-9) {
+        best = qty;
+      }
+    }
+    const fractional = target - whole;
+    if (fractional > 1e-9) {
+      const fullTargetAffordable = this._cashAfterExecution(player, direction * target, unitPrice) >= -1e-9;
+      if (fullTargetAffordable) {
+        best = target;
+      }
+    }
+
+    return direction * best;
   }
 
   _recordMarketExecution(side, volume, { remainder = false, trackCross = true } = {}) {
