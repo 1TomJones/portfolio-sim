@@ -509,12 +509,16 @@ function ensurePosition(player, assetId) {
 }
 
 function ensureCashBuckets(player) {
-  if (!Number.isFinite(player.cash)) player.cash = 0;
-  if (!Number.isFinite(player.shortProceedsLocked)) player.shortProceedsLocked = 0;
+  if (!Number.isFinite(player.freeCash)) player.freeCash = Number.isFinite(player.cash) ? Number(player.cash) : 0;
+  if (!Number.isFinite(player.shortCollateral)) {
+    player.shortCollateral = Number.isFinite(player.shortProceedsLocked) ? Number(player.shortProceedsLocked) : 0;
+  }
+  player.cash = player.freeCash;
+  player.shortProceedsLocked = player.shortCollateral;
 }
 
 function canShortAsset(asset) {
-  return sim.scenario?.id === "macro-six-month" && SHORTABLE_ASSET_IDS.has(asset?.id);
+  return SHORTABLE_ASSET_IDS.has(asset?.id);
 }
 
 function tradeCashRequirement(_player, _assetId, side, qty, price) {
@@ -555,7 +559,7 @@ function computePlayerPortfolioValue(player) {
     if (!asset) continue;
     holdingsValue += Number(data.position || 0) * Number(asset.price || 0);
   }
-  return Number(player.cash || 0) + Number(player.shortProceedsLocked || 0) + holdingsValue;
+  return Number(player.freeCash || 0) + Number(player.shortCollateral || 0) + holdingsValue;
 }
 
 function average(values) {
@@ -777,7 +781,8 @@ function publishPortfolio(player) {
   if (socket) {
     socket.emit("portfolio", {
       positions,
-      cash: player.cash,
+      freeCash: player.freeCash,
+      cash: player.freeCash,
       totalEquity: computePlayerPortfolioValue(player),
     });
     socket.emit("openOrders", { orders: player.orders });
@@ -795,14 +800,16 @@ function applyFillToPositionAndCash(player, positionData, normalizedSide, qty, p
 
   if (normalizedSide === "buy") {
     const totalCost = tradeQty * unitPrice;
-    player.cash -= totalCost;
+    player.freeCash -= totalCost;
 
     if (shortable && previousPosition < 0) {
       const sharesCovered = Math.min(tradeQty, Math.abs(previousPosition));
       if (sharesCovered > 0) {
         const realizedDelta = (avgCost - unitPrice) * sharesCovered;
         positionData.realizedPnl = (positionData.realizedPnl || 0) + realizedDelta;
-        player.shortProceedsLocked -= avgCost * sharesCovered;
+        const collateralRelease = avgCost * sharesCovered;
+        player.shortCollateral -= collateralRelease;
+        player.freeCash += collateralRelease;
       }
     }
 
@@ -836,13 +843,13 @@ function applyFillToPositionAndCash(player, positionData, normalizedSide, qty, p
     if (sharesSoldFromLong > 0) {
       const realizedDelta = (unitPrice - avgCost) * sharesSoldFromLong;
       positionData.realizedPnl = (positionData.realizedPnl || 0) + realizedDelta;
-      player.cash += sharesSoldFromLong * unitPrice;
+      player.freeCash += sharesSoldFromLong * unitPrice;
     }
 
     const sharesSoldIntoShort = Math.max(0, tradeQty - previousPosition);
     if (sharesSoldIntoShort > 0) {
-      if (shortable) player.shortProceedsLocked += sharesSoldIntoShort * unitPrice;
-      else player.cash += sharesSoldIntoShort * unitPrice;
+      if (shortable) player.shortCollateral += sharesSoldIntoShort * unitPrice;
+      else player.freeCash += sharesSoldIntoShort * unitPrice;
     }
 
     if (nextPos > 0) {
@@ -862,7 +869,7 @@ function applyFillToPositionAndCash(player, positionData, normalizedSide, qty, p
 
   if (previousPosition === 0) {
     if (shortable) {
-      player.shortProceedsLocked += tradeQty * unitPrice;
+      player.shortCollateral += tradeQty * unitPrice;
       positionData.position = -tradeQty;
       positionData.avgCost = unitPrice;
     }
@@ -870,7 +877,7 @@ function applyFillToPositionAndCash(player, positionData, normalizedSide, qty, p
   }
 
   const totalShortSize = Math.abs(previousPosition) + tradeQty;
-  if (shortable) player.shortProceedsLocked += tradeQty * unitPrice;
+  if (shortable) player.shortCollateral += tradeQty * unitPrice;
   positionData.position = nextPos;
   positionData.avgCost = (Math.abs(previousPosition) * avgCost + tradeQty * unitPrice) / totalShortSize;
   return 0;
@@ -895,7 +902,7 @@ function fillOrder(player, order, asset) {
   const previousPosition = Number(positionData.position || 0);
   const totalCost = effectiveQty * Number(order.price || 0);
 
-  if (normalizedSide === "buy" && Number(player.cash || 0) < totalCost) {
+  if (normalizedSide === "buy" && Number(player.freeCash || 0) < totalCost) {
     return { filledQty: 0, realizedPnlDelta: 0 };
   }
 
@@ -1398,6 +1405,8 @@ io.on("connection", (socket) => {
       name: nm,
       positions: {},
       orders: [],
+      freeCash: DEFAULT_CASH,
+      shortCollateral: 0,
       cash: DEFAULT_CASH,
       shortProceedsLocked: 0,
       joinedAt: new Date().toISOString(),
@@ -1446,7 +1455,7 @@ io.on("connection", (socket) => {
     }
 
     if (type === "market") {
-      if (tradeCashRequirement(player, asset.id, side, qty, asset.price) > player.cash) {
+      if (tradeCashRequirement(player, asset.id, side, qty, asset.price) > player.freeCash) {
         ack?.({ ok: false, reason: "insufficient-cash" });
         return;
       }
@@ -1468,7 +1477,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    if (tradeCashRequirement(player, asset.id, side, qty, limitPrice) > player.cash) {
+    if (tradeCashRequirement(player, asset.id, side, qty, limitPrice) > player.freeCash) {
       ack?.({ ok: false, reason: "insufficient-cash" });
       return;
     }
