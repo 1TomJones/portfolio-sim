@@ -300,92 +300,103 @@
   ],
   "macroEvents": [
     {
-      "id": "m1-us-cpi",
-      "label": "\ud83c\uddfa\ud83c\uddf8 US CPI",
-      "expectationTick": 600,
-      "actualTick": 840,
-      "expected": "2.9% (cooling trend)",
-      "actual": "3.1% (hotter than expected)"
+      "id": "us-cpi-1",
+      "label": "\ud83c\uddfa\ud83c\uddf8 US CPI #1 \u2014 Disinflation Surprise (Risk-On)",
+      "countryCode": "US",
+      "expectationTick": 2800,
+      "actualTick": 3000,
+      "expected": "Traders expect US CPI at 3.2% y/y; services inflation remains key focus",
+      "actual": "US CPI prints 2.8% y/y vs 3.2% expected; inflation cooling faster than forecast"
     },
     {
-      "id": "m1-us-nfp",
-      "label": "\ud83c\uddfa\ud83c\uddf8 Non-Farm Payrolls",
-      "expectationTick": 1200,
-      "actualTick": 1440,
-      "expected": "+180k jobs",
-      "actual": "+110k (weaker than expected)"
+      "id": "us-jobs-1",
+      "label": "\ud83c\uddfa\ud83c\uddf8 US Jobs \u2014 Strong Labor Market (Bank-positive)",
+      "countryCode": "US",
+      "expectationTick": 10800,
+      "actualTick": 11000,
+      "expected": "Payrolls expected 180k; wage growth and participation in focus",
+      "actual": "US payrolls 310k vs 180k expected; labor market stronger than anticipated"
     },
     {
-      "id": "m2-fed",
-      "label": "\ud83c\uddfa\ud83c\uddf8 Federal Reserve Rate Decision",
-      "expectationTick": 4500,
-      "actualTick": 4800,
-      "expected": "Rate cut of 25bps",
-      "actual": "No rate cut"
+      "id": "us-cpi-2",
+      "label": "\ud83c\uddfa\ud83c\uddf8 US CPI #2 \u2014 Inflation Shock (Late Risk-Off)",
+      "countryCode": "US",
+      "expectationTick": 18300,
+      "actualTick": 18500,
+      "expected": "CPI expected 2.9% y/y; markets positioned for benign print",
+      "actual": "US CPI surprises higher: 3.5% vs 2.9% expected; inflation re-accelerates"
     },
     {
-      "id": "m2-china-gdp",
-      "label": "\ud83c\udde8\ud83c\uddf3 China GDP",
-      "expectationTick": 5100,
-      "actualTick": 5400,
-      "expected": "4.8%",
-      "actual": "4.2% (weaker)"
+      "id": "china-gdp",
+      "label": "\ud83c\udde8\ud83c\uddf3 China GDP \u2014 Major Miss (Policy risk)",
+      "countryCode": "CN",
+      "expectationTick": 6800,
+      "actualTick": 7000,
+      "expected": "Consensus sees China GDP near 5.0%; property demand remains key watchpoint",
+      "actual": "China GDP misses: 4.1% vs 5.0% expected; property sector weakness persists"
     },
     {
-      "id": "m3-ecb",
-      "label": "\ud83c\uddea\ud83c\uddfa ECB Rate Decision",
-      "expectationTick": 7500,
-      "actualTick": 7800,
-      "expected": "Hold",
-      "actual": "Rate cut"
+      "id": "china-stimulus",
+      "label": "\ud83c\udde8\ud83c\uddf3 China Stimulus Follow-Through (Against prior weakness)",
+      "countryCode": "CN",
+      "expectationTick": 15600,
+      "actualTick": 15850,
+      "expected": "Markets anticipate targeted stimulus measures for infrastructure and housing",
+      "actual": "China announces larger-than-expected stimulus package for infrastructure and housing"
     },
     {
-      "id": "m3-us-cpi",
-      "label": "\ud83c\uddfa\ud83c\uddf8 US CPI",
-      "expectationTick": 8400,
-      "actualTick": 8700,
-      "expected": "3.0%",
-      "actual": "2.7% (cooling)"
+      "id": "ecb-hawkish-hold",
+      "label": "\ud83c\uddea\ud83c\uddfa ECB Rate Decision \u2014 Hawkish Hold (Negative Europe)",
+      "countryCode": "EU",
+      "expectationTick": 14800,
+      "actualTick": 15000,
+      "expected": "Markets price ECB rate cut; guidance expected to signal easing ahead",
+      "actual": "ECB holds rates and warns inflation risks remain elevated"
     },
     {
-      "id": "m4-uk-cpi",
-      "label": "\ud83c\uddec\ud83c\udde7 UK CPI",
-      "expectationTick": 11400,
-      "actualTick": 11700,
-      "expected": "3.2%",
-      "actual": "3.2% (in line)"
+      "id": "eurozone-pmi",
+      "label": "\ud83c\uddea\ud83c\uddfa Eurozone PMI \u2014 Confirms Weak Growth",
+      "countryCode": "EU",
+      "expectationTick": 17200,
+      "actualTick": 17400,
+      "expected": "Manufacturing PMI expected to stabilize near contraction threshold",
+      "actual": "Eurozone PMIs remain in contraction; recession concerns intensify"
     },
     {
-      "id": "m4-boj",
-      "label": "\ud83c\uddef\ud83c\uddf5 BOJ Policy Decision",
-      "expectationTick": 12300,
-      "actualTick": 12600,
-      "expected": "Hold",
-      "actual": "Tightening"
+      "id": "japan-ip",
+      "label": "\ud83c\uddef\ud83c\uddf5 Japan Industrial Production \u2014 Negative Surprise",
+      "countryCode": "JP",
+      "expectationTick": 7200,
+      "actualTick": 7400,
+      "expected": "Industrial production expected to rise modestly on export demand",
+      "actual": "Japan industrial production contracts; exporters cite supply disruptions"
     },
     {
-      "id": "m5-us-gdp",
-      "label": "\ud83c\uddfa\ud83c\uddf8 US GDP",
-      "expectationTick": 15000,
-      "actualTick": 15300,
-      "expected": "2.0%",
-      "actual": "2.8% (strong)"
+      "id": "japan-policy",
+      "label": "\ud83c\uddef\ud83c\uddf5 Japan Policy Support (Counter-trend recovery)",
+      "countryCode": "JP",
+      "expectationTick": 16800,
+      "actualTick": 17050,
+      "expected": "Markets expect modest fiscal support for manufacturers",
+      "actual": "Japan announces larger-than-expected fiscal support for exporters"
     },
     {
-      "id": "m5-china-ip",
-      "label": "\ud83c\udde8\ud83c\uddf3 China Industrial Production",
-      "expectationTick": 15900,
-      "actualTick": 16200,
-      "expected": "+4.5%",
-      "actual": "+3.2%"
+      "id": "uk-gdp",
+      "label": "\ud83c\uddec\ud83c\udde7 UK GDP \u2014 Growth Disappointment",
+      "countryCode": "GB",
+      "expectationTick": 14500,
+      "actualTick": 14650,
+      "expected": "UK GDP expected to show modest quarterly growth",
+      "actual": "UK GDP disappoints; domestic demand weaker than forecast"
     },
     {
-      "id": "m6-fed-final",
-      "label": "\ud83c\uddfa\ud83c\uddf8 Final Federal Reserve Decision (Climax Event)",
-      "expectationTick": 18600,
-      "actualTick": 18900,
-      "expected": "Rate cut of 25bps",
-      "actual": "Rate cut of 50bps"
+      "id": "uk-cpi",
+      "label": "\ud83c\uddec\ud83c\udde7 UK Inflation \u2014 Cooling Faster Than Expected (Against trend)",
+      "countryCode": "GB",
+      "expectationTick": 17600,
+      "actualTick": 17800,
+      "expected": "UK CPI expected at 3.5%; services inflation sticky",
+      "actual": "UK CPI falls to 2.9% vs 3.5% expected; inflation easing faster than forecast"
     }
   ],
   "news": [
@@ -450,21 +461,6 @@
       "decay_seconds": 180,
       "assetShocks": {
         "eq-tsla": 0.07
-      }
-    },
-    {
-      "tick": 2800,
-      "headline": "Traders expect CPI at 3.2% y/y; focus on services inflation",
-      "decay_seconds": 180,
-      "assetShocks": {}
-    },
-    {
-      "tick": 3000,
-      "headline": "US CPI prints 2.8% y/y vs 3.2% expected",
-      "decay_seconds": 180,
-      "assetShocks": {
-        "idx-spx": 0.04,
-        "cmd-gold": -0.03
       }
     },
     {
@@ -535,29 +531,6 @@
       "assetShocks": {
         "idx-spx": 0.02,
         "eq-amzn": 0.03
-      }
-    },
-    {
-      "tick": 6800,
-      "headline": "Consensus sees China GDP near 5.0%; property demand key watchpoint",
-      "decay_seconds": 180,
-      "assetShocks": {}
-    },
-    {
-      "tick": 7000,
-      "headline": "China GDP misses: 4.1% vs 5.0% expected; property drag persists",
-      "decay_seconds": 180,
-      "assetShocks": {
-        "idx-csi300": -0.08,
-        "cmd-brent": -0.03
-      }
-    },
-    {
-      "tick": 7400,
-      "headline": "Japan manufacturers warn of component delays; export outlook trimmed",
-      "decay_seconds": 180,
-      "assetShocks": {
-        "idx-nikkei": -0.05
       }
     },
     {
@@ -701,37 +674,12 @@
       }
     },
     {
-      "tick": 14650,
-      "headline": "UK growth data disappoints; domestic demand weakens",
-      "decay_seconds": 180,
-      "assetShocks": {
-        "idx-ftse100": -0.04
-      }
-    },
-    {
-      "tick": 15000,
-      "headline": "ECB holds rates; signals inflation risks remain elevated",
-      "decay_seconds": 180,
-      "assetShocks": {
-        "idx-sx5e": -0.07,
-        "cmd-gold": 0.03
-      }
-    },
-    {
       "tick": 15400,
       "headline": "US crude stocks draw faster than expected; inland pressure eases",
       "decay_seconds": 180,
       "assetShocks": {
         "cmd-wti": 0.07,
         "cmd-brent": 0.02
-      }
-    },
-    {
-      "tick": 15850,
-      "headline": "China announces large infrastructure stimulus; banks and construction to benefit",
-      "decay_seconds": 180,
-      "assetShocks": {
-        "idx-csi300": 0.08
       }
     },
     {
@@ -762,42 +710,11 @@
       "major": true
     },
     {
-      "tick": 17400,
-      "headline": "Eurozone PMIs remain in contraction; recession concerns persist",
-      "decay_seconds": 180,
-      "assetShocks": {
-        "idx-sx5e": -0.05
-      }
-    },
-    {
-      "tick": 17800,
-      "headline": "Tesla resolves battery supply constraints; production outlook raised",
-      "decay_seconds": 180,
-      "assetShocks": {
-        "eq-tsla": 0.07
-      }
-    },
-    {
       "tick": 18150,
       "headline": "Silver demand softens as electronics orders pause; prices volatile",
       "decay_seconds": 180,
       "assetShocks": {
         "cmd-silver": -0.04
-      }
-    },
-    {
-      "tick": 18300,
-      "headline": "CPI expected 2.9% y/y; markets positioned for benign print",
-      "decay_seconds": 180,
-      "assetShocks": {}
-    },
-    {
-      "tick": 18500,
-      "headline": "US CPI surprises higher: 3.5% vs 2.9% expected",
-      "decay_seconds": 180,
-      "assetShocks": {
-        "idx-spx": -0.06,
-        "cmd-gold": 0.07
       }
     },
     {

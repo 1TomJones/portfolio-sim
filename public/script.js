@@ -323,7 +323,7 @@ function computePortfolioSlices() {
   const slices = assets
     .map((asset) => {
       const posData = getPositionData(asset.id);
-      const qty = Math.max(0, Number(posData.position || 0));
+      const qty = Math.abs(Number(posData.position || 0));
       const value = qty * Number(asset.price || 0);
       return {
         assetId: asset.id,
@@ -444,7 +444,7 @@ function updatePortfolioSummary() {
     const realized = posData.realizedPnl || 0;
     unrealizedPnl += unrealized;
     realizedPnl += realized;
-    positionValue += Math.max(0, posData.position) * price;
+    positionValue += Math.abs(Number(posData.position || 0)) * price;
   });
 
   const totalPnl = realizedPnl + unrealizedPnl;
