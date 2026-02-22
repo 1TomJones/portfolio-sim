@@ -176,15 +176,22 @@ function createAssetState(assetDef, simCfg) {
   const pointSize = pricePointSize(assetDef.startPrice);
   const pointSizeDecimals = String(pointSize).includes(".") ? String(pointSize).split(".")[1].length : 0;
   const displayDecimals = Math.max(decimals, pointSizeDecimals);
-  const initial = buildInitialCandles(
-    assetDef.startPrice,
-    displayDecimals,
-    simCfg.maxCandles,
-    simCfg.ticksPerCandle,
-    simCfg.gameMsPerTick,
-    simCfg.simStartMs,
-  );
-  const lastCandleTime = initial.candles[initial.candles.length - 1]?.time ?? Math.floor(simCfg.simStartMs / 1000);
+  const listingTick = Number.isFinite(Number(assetDef.listingTick)) ? Number(assetDef.listingTick) : null;
+  const listedAtStart = !Number.isFinite(listingTick) || listingTick <= 0;
+  const initial = listedAtStart
+    ? buildInitialCandles(
+        assetDef.startPrice,
+        displayDecimals,
+        simCfg.maxCandles,
+        simCfg.ticksPerCandle,
+        simCfg.gameMsPerTick,
+        simCfg.simStartMs,
+      )
+    : { candles: [], price: quantize(assetDef.startPrice, displayDecimals) };
+  const listingStartTime = Math.floor((simCfg.simStartMs + Math.max(0, listingTick || 0) * simCfg.gameMsPerTick) / 1000);
+  const lastCandleTime = listedAtStart
+    ? (initial.candles[initial.candles.length - 1]?.time ?? Math.floor(simCfg.simStartMs / 1000))
+    : listingStartTime;
   const stepSeconds = candleStepSeconds(simCfg);
 
   return {
@@ -193,7 +200,7 @@ function createAssetState(assetDef, simCfg) {
     name: assetDef.name,
     category: assetDef.category,
     group: assetDef.group || null,
-    listingTick: Number.isFinite(Number(assetDef.listingTick)) ? Number(assetDef.listingTick) : null,
+    listingTick,
     isYield: Boolean(assetDef.isYield),
     decimals: displayDecimals,
     pointSize,
@@ -204,16 +211,18 @@ function createAssetState(assetDef, simCfg) {
     fairValue: quantize(assetDef.startPrice, displayDecimals),
     driftMultiplier: 1,
     candles: initial.candles,
-    fairPoints: initial.candles.map((candle) => ({ time: candle.time, value: candle.close })),
-    currentCandle: {
-      time: lastCandleTime + stepSeconds,
-      open: initial.price,
-      high: initial.price,
-      low: initial.price,
-      close: initial.price,
-    },
+    fairPoints: listedAtStart ? initial.candles.map((candle) => ({ time: candle.time, value: candle.close })) : [],
+    currentCandle: listedAtStart
+      ? {
+          time: lastCandleTime + stepSeconds,
+          open: initial.price,
+          high: initial.price,
+          low: initial.price,
+          close: initial.price,
+        }
+      : null,
     ticksInCandle: 0,
-    nextCandleTime: lastCandleTime + stepSeconds,
+    nextCandleTime: listedAtStart ? lastCandleTime + stepSeconds : listingStartTime + stepSeconds,
   };
 }
 
@@ -270,6 +279,34 @@ function applyRegimeFairValueDrift() {
     const scaledDriftPerTick = baseDriftPerTick * driftMultiplierForAsset(asset);
     asset.driftMultiplier *= 1 + scaledDriftPerTick;
   }
+}
+
+function oilConvergenceDriftPctForTick(tick) {
+  const month = Math.floor(Math.max(0, Number(tick) || 0) / TICKS_PER_MONTH) + 1;
+  return month >= 6 ? 0.00006 : 0.00003;
+}
+
+function applyOilConvergenceDrift() {
+  if (sim.scenario?.id !== "macro-six-month") return;
+  const brent = sim.assets.find((asset) => asset.id === "cmd-brent");
+  const wti = sim.assets.find((asset) => asset.id === "cmd-wti");
+  if (!brent || !wti) return;
+
+  const brentFv = Number.isFinite(brent.fairValue) ? brent.fairValue : brent.basePrice;
+  const wtiFv = Number.isFinite(wti.fairValue) ? wti.fairValue : wti.basePrice;
+  if (!Number.isFinite(brentFv) || !Number.isFinite(wtiFv)) return;
+
+  const driftPct = oilConvergenceDriftPctForTick(sim.tick);
+  if (Math.abs(wtiFv - brentFv) < Number.EPSILON) return;
+
+  if (wtiFv > brentFv) {
+    registerAssetImpact("cmd-wti", -driftPct);
+    registerAssetImpact("cmd-brent", driftPct);
+    return;
+  }
+
+  registerAssetImpact("cmd-wti", driftPct);
+  registerAssetImpact("cmd-brent", -driftPct);
 }
 
 function createSimulationState(scenarioId) {
@@ -943,14 +980,52 @@ function stepTick() {
   applyMacroEventIfAny();
   applyNewsIfAny();
   applyMajorAssetMomentums();
+  applyOilConvergenceDrift();
 
   const updates = [];
   const adminUpdates = [];
 
   let candleClosed = false;
   for (const asset of sim.assets) {
-    asset.fairValue = computeFairValue(asset);
-    asset.price = moveAssetPriceByPoint(asset);
+    if (!isAssetListed(asset)) {
+      adminUpdates.push({
+        id: asset.id,
+        symbol: asset.symbol,
+        name: asset.name,
+        category: asset.category,
+        group: asset.group,
+        listingTick: asset.listingTick,
+        isYield: asset.isYield,
+        price: asset.price,
+        candle: asset.currentCandle,
+        completedCandle: null,
+        lastTrade: asset.lastTrade || null,
+        fairValue: asset.fairValue,
+        fairPoint: asset.currentCandle ? { time: asset.currentCandle.time, value: asset.fairValue } : null,
+        completedFairPoint: null,
+      });
+      continue;
+    }
+
+    const justListed = Number.isFinite(asset.listingTick) && sim.tick === asset.listingTick;
+    if (justListed) {
+      const ipoPrice = quantize(asset.basePrice, asset.decimals);
+      asset.price = ipoPrice;
+      asset.fairValue = ipoPrice;
+      asset.currentCandle = {
+        time: asset.nextCandleTime,
+        open: ipoPrice,
+        high: ipoPrice,
+        low: ipoPrice,
+        close: ipoPrice,
+      };
+      asset.ticksInCandle = 0;
+    }
+
+    if (!justListed) {
+      asset.fairValue = computeFairValue(asset);
+      asset.price = moveAssetPriceByPoint(asset);
+    }
 
     if (!asset.currentCandle) {
       asset.currentCandle = {
@@ -982,7 +1057,6 @@ function stepTick() {
 
     processLimitOrdersForAsset(asset);
 
-    const justListed = Number.isFinite(asset.listingTick) && sim.tick === asset.listingTick;
     const shared = {
       id: asset.id,
       symbol: asset.symbol,
