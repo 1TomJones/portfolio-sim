@@ -512,12 +512,13 @@ function canShortAsset(asset) {
   return sim.scenario?.id === "macro-six-month" && SHORTABLE_ASSET_IDS.has(asset?.id);
 }
 
-function buyCashRequirement(player, assetId, qty, price) {
-  const signedQty = Math.max(0, Number(qty || 0));
+function tradeCashRequirement(player, assetId, side, qty, price) {
+  const signedQty = Math.max(0, Number(qty || 0)) * (side === "sell" ? -1 : 1);
   const unitPrice = Math.max(0, Number(price || 0));
   const currentPosition = Number(ensurePosition(player, assetId).position || 0);
-  const shortCoverQty = Math.min(signedQty, Math.max(0, -currentPosition));
-  return Math.max(0, signedQty - shortCoverQty) * unitPrice;
+  const nextPosition = currentPosition + signedQty;
+  const grossIncreaseQty = Math.max(0, Math.abs(nextPosition) - Math.abs(currentPosition));
+  return grossIncreaseQty * unitPrice;
 }
 
 function computePositionPnl(positionData, assetPrice) {
@@ -778,15 +779,17 @@ function fillOrder(player, order, asset) {
   }
 
   const qtySigned = order.side === "buy" ? effectiveQty : -effectiveQty;
-  const previousPosition = positionData.position;
-  const realizedPnlDelta = applyFillToPosition(positionData, qtySigned, order.price);
-  const tradedNotional = effectiveQty * order.price;
+  const previousPosition = Number(positionData.position || 0);
+  const projectedPosition = previousPosition + qtySigned;
+  const grossDeltaQty = Math.abs(projectedPosition) - Math.abs(previousPosition);
+  const cashDelta = -grossDeltaQty * order.price;
 
-  if (order.side === "buy") {
-    player.cash -= tradedNotional;
-  } else {
-    player.cash += tradedNotional;
+  if (cashDelta < 0 && Number(player.cash || 0) + cashDelta < 0) {
+    return { filledQty: 0, realizedPnlDelta: 0 };
   }
+
+  const realizedPnlDelta = applyFillToPosition(positionData, qtySigned, order.price);
+  player.cash += cashDelta;
 
   const socket = io.sockets.sockets.get(player.id);
   if (socket) {
@@ -1328,7 +1331,7 @@ io.on("connection", (socket) => {
     }
 
     if (type === "market") {
-      if (side === "buy" && buyCashRequirement(player, asset.id, qty, asset.price) > player.cash) {
+      if (tradeCashRequirement(player, asset.id, side, qty, asset.price) > player.cash) {
         ack?.({ ok: false, reason: "insufficient-cash" });
         return;
       }
@@ -1350,7 +1353,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    if (side === "buy" && buyCashRequirement(player, asset.id, qty, limitPrice) > player.cash) {
+    if (tradeCashRequirement(player, asset.id, side, qty, limitPrice) > player.cash) {
       ack?.({ ok: false, reason: "insufficient-cash" });
       return;
     }
