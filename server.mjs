@@ -41,6 +41,7 @@ const PORT = process.env.PORT || 10000;
 const DEFAULT_CASH = 10000000;
 const SHORTABLE_ASSET_IDS = new Set(["cmd-brent", "cmd-wti"]);
 const STARTING_CAPITAL = DEFAULT_CASH;
+const MAX_SHORT_NOTIONAL_MULTIPLIER = 1.0;
 const GRACE_PERIOD_CANDLES = 60;
 const scenariosPath = path.join(__dirname, "scenarios");
 const metadataPath = path.join(__dirname, "public", "meta", "scenarios.json");
@@ -526,12 +527,70 @@ function canShortAsset(asset) {
   return SHORTABLE_ASSET_IDS.has(asset?.id);
 }
 
-function tradeCashRequirement(_player, _assetId, side, qty, price) {
+function maxShortNotional() {
+  return STARTING_CAPITAL * MAX_SHORT_NOTIONAL_MULTIPLIER;
+}
+
+function computeOilShortNotional(player) {
+  let total = 0;
+  for (const asset of sim.assets || []) {
+    if (!canShortAsset(asset)) continue;
+    const position = Number(player.positions?.[asset.id]?.position || 0);
+    if (position >= 0) continue;
+    total += Math.abs(position) * Math.max(0, Number(asset.price || 0));
+  }
+  return total;
+}
+
+function validateOrderBudget(player, asset, side, qty, price) {
+  ensureCashBuckets(player);
   const normalizedSide = String(side || "").toLowerCase() === "sell" ? "sell" : "buy";
-  if (normalizedSide !== "buy") return 0;
   const tradeQty = Math.max(0, Number(qty || 0));
   const unitPrice = Math.max(0, Number(price || 0));
-  return tradeQty * unitPrice;
+  if (!asset || tradeQty <= 0 || unitPrice <= 0) return { ok: false, reason: "bad-order" };
+
+  const positionData = ensurePosition(player, asset.id);
+  const previousPosition = Number(positionData.position || 0);
+
+  if (normalizedSide === "buy") {
+    const sharesCovered = canShortAsset(asset) && previousPosition < 0 ? Math.min(tradeQty, Math.abs(previousPosition)) : 0;
+    const coverCost = sharesCovered * unitPrice;
+    const availableToCover = Number(player.freeCash || 0) + Number(player.shortCollateral || 0);
+    if (coverCost > availableToCover + 1e-9) {
+      return { ok: false, reason: "insufficient-covering-power" };
+    }
+
+    const coverRelease = sharesCovered * Number(positionData.avgCost || 0);
+    const projectedFreeCashAfterCover = Number(player.freeCash || 0) - coverCost + coverRelease;
+    const longOpenedShares = tradeQty - sharesCovered;
+    const longOpenCost = longOpenedShares * unitPrice;
+    if (longOpenCost > projectedFreeCashAfterCover + 1e-9) {
+      return { ok: false, reason: "insufficient-cash" };
+    }
+
+    return { ok: true, effectiveQty: tradeQty };
+  }
+
+  if (!canShortAsset(asset)) {
+    const owned = Math.max(0, previousPosition);
+    const effectiveQty = Math.min(tradeQty, owned);
+    if (effectiveQty <= 0) return { ok: false, reason: "no-position" };
+    return { ok: true, effectiveQty };
+  }
+
+  const longSharesAvailable = Math.max(0, previousPosition);
+  const shortSharesRequested = Math.max(0, tradeQty - longSharesAvailable);
+  if (shortSharesRequested <= 0) return { ok: true, effectiveQty: tradeQty };
+
+  const allowedNotionalHeadroom = Math.max(0, maxShortNotional() - computeOilShortNotional(player));
+  const maxAdditionalShortShares = Math.floor((allowedNotionalHeadroom + 1e-9) / unitPrice);
+  const allowedShortShares = Math.min(shortSharesRequested, Math.max(0, maxAdditionalShortShares));
+  const effectiveQty = Math.min(tradeQty, longSharesAvailable + allowedShortShares);
+
+  if (effectiveQty <= 0) {
+    return { ok: false, reason: "short-limit" };
+  }
+  return { ok: true, effectiveQty };
 }
 
 function computePositionPnl(positionData, assetPrice) {
@@ -896,23 +955,18 @@ function fillOrder(player, order, asset) {
   const requestedQty = Math.abs(Number(order.qty || 0));
   const normalizedSide = String(order.side || "").toLowerCase() === "sell" ? "sell" : "buy";
   const shortable = canShortAsset(asset);
-  let effectiveQty = requestedQty;
-
-  if (normalizedSide === "sell" && !shortable) {
-    effectiveQty = Math.min(effectiveQty, Math.max(0, Number(positionData.position || 0)));
-  }
+  const budgetValidation = validateOrderBudget(player, asset, normalizedSide, requestedQty, order.price);
+  let effectiveQty = Math.max(0, Number(budgetValidation.effectiveQty ?? requestedQty));
 
   if (!Number.isFinite(effectiveQty) || effectiveQty <= 0) {
     return { filledQty: 0, realizedPnlDelta: 0 };
   }
 
-  ensureCashBuckets(player);
-  const previousPosition = Number(positionData.position || 0);
-  const totalCost = effectiveQty * Number(order.price || 0);
-
-  if (normalizedSide === "buy" && computeAvailableCash(player) < totalCost) {
-    return { filledQty: 0, realizedPnlDelta: 0 };
+  if (!budgetValidation.ok) {
+    return { filledQty: 0, realizedPnlDelta: 0, reason: budgetValidation.reason };
   }
+
+  const previousPosition = Number(positionData.position || 0);
 
   const realizedBefore = Number(positionData.realizedPnl || 0);
   applyFillToPositionAndCash(player, positionData, normalizedSide, effectiveQty, order.price, shortable);
@@ -1467,13 +1521,14 @@ io.on("connection", (socket) => {
     }
 
     if (type === "market") {
-      if (tradeCashRequirement(player, asset.id, side, qty, asset.price) > computeAvailableCash(player)) {
-        ack?.({ ok: false, reason: "insufficient-cash" });
+      const validation = validateOrderBudget(player, asset, side, qty, asset.price);
+      if (!validation.ok && side === "buy") {
+        ack?.({ ok: false, reason: validation.reason === "insufficient-covering-power" ? "insufficient-covering-power" : "insufficient-cash" });
         return;
       }
       const shortable = canShortAsset(asset);
       const owned = Math.max(0, Number(ensurePosition(player, asset.id).position || 0));
-      const effectiveQty = side === "sell" && !shortable ? Math.min(qty, owned) : qty;
+      const effectiveQty = Math.max(0, Number(validation.effectiveQty ?? (side === "sell" && !shortable ? Math.min(qty, owned) : qty)));
       if (side === "sell" && effectiveQty <= 0) {
         ack?.({ ok: true, filled: false, qty: 0 });
         return;
@@ -1489,14 +1544,15 @@ io.on("connection", (socket) => {
       return;
     }
 
-    if (tradeCashRequirement(player, asset.id, side, qty, limitPrice) > computeAvailableCash(player)) {
-      ack?.({ ok: false, reason: "insufficient-cash" });
+    const validation = validateOrderBudget(player, asset, side, qty, limitPrice);
+    if (!validation.ok && side === "buy") {
+      ack?.({ ok: false, reason: validation.reason === "insufficient-covering-power" ? "insufficient-covering-power" : "insufficient-cash" });
       return;
     }
 
     const shortable = canShortAsset(asset);
     const owned = Math.max(0, Number(ensurePosition(player, asset.id).position || 0));
-    const effectiveQty = side === "sell" && !shortable ? Math.min(qty, owned) : qty;
+    const effectiveQty = Math.max(0, Number(validation.effectiveQty ?? (side === "sell" && !shortable ? Math.min(qty, owned) : qty)));
     if (side === "sell" && effectiveQty <= 0) {
       ack?.({ ok: true, filled: false, qty: 0 });
       return;
