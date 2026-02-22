@@ -201,6 +201,7 @@ function createAssetState(assetDef, simCfg) {
     correlations: assetDef.correlations || {},
     price: quantize(initial.price, displayDecimals),
     fairValue: quantize(assetDef.startPrice, displayDecimals),
+    driftMultiplier: 1,
     candles: initial.candles,
     fairPoints: initial.candles.map((candle) => ({ time: candle.time, value: candle.close })),
     currentCandle: {
@@ -213,6 +214,54 @@ function createAssetState(assetDef, simCfg) {
     ticksInCandle: 0,
     nextCandleTime: lastCandleTime + stepSeconds,
   };
+}
+
+const TICKS_PER_MONTH = 3600;
+
+function regimeMonthlyDriftForTick(tick) {
+  const month = Math.floor(Math.max(0, Number(tick) || 0) / TICKS_PER_MONTH) + 1;
+  if (month <= 2) {
+    return { riskAssets: 0.04, gold: -0.02, silver: -0.01 };
+  }
+  if (month <= 4) {
+    return { riskAssets: -0.05, gold: 0.04, silver: 0.02 };
+  }
+  return { riskAssets: 0.06, gold: -0.03, silver: -0.02 };
+}
+
+function driftMultiplierForAsset(asset) {
+  const symbol = String(asset?.symbol || "").toUpperCase();
+  const bySymbol = {
+    SPX: 1,
+    ESTOXX: 1.1,
+    NKY: 1.1,
+    CSI: 0.8,
+    FTSE: 0.7,
+    UKX: 0.7,
+    GOLD: 1.2,
+    AU: 1.2,
+    SILVER: 0.7,
+    AG: 0.7,
+  };
+  return Number.isFinite(bySymbol[symbol]) ? bySymbol[symbol] : 1;
+}
+
+function baseMonthlyDriftForAsset(asset, monthlyTargets) {
+  const symbol = String(asset?.symbol || "").toUpperCase();
+  if (symbol === "GOLD" || symbol === "AU") return monthlyTargets.gold;
+  if (symbol === "SILVER" || symbol === "AG") return monthlyTargets.silver;
+  return monthlyTargets.riskAssets;
+}
+
+function applyRegimeFairValueDrift() {
+  if (sim.scenario?.id !== "macro-six-month") return;
+  const monthlyTargets = regimeMonthlyDriftForTick(sim.tick);
+  for (const asset of sim.assets) {
+    const baseMonthlyDrift = baseMonthlyDriftForAsset(asset, monthlyTargets);
+    const baseDriftPerTick = baseMonthlyDrift / TICKS_PER_MONTH;
+    const scaledDriftPerTick = baseDriftPerTick * driftMultiplierForAsset(asset);
+    asset.driftMultiplier *= 1 + scaledDriftPerTick;
+  }
 }
 
 function createSimulationState(scenarioId) {
@@ -850,7 +899,12 @@ function computeFairValue(asset) {
     return acc + ((source.price - source.basePrice) / source.basePrice) * Number(beta || 0);
   }, 0);
 
-  const target = asset.basePrice * (1 + factorContribution + correlationContribution + inlineCorrelationContribution) * (1 + impactPct);
+  const driftMultiplier = Number.isFinite(asset.driftMultiplier) ? asset.driftMultiplier : 1;
+  const target =
+    asset.basePrice *
+    driftMultiplier *
+    (1 + factorContribution + correlationContribution + inlineCorrelationContribution) *
+    (1 + impactPct);
   return Math.max(0.01, quantize(target, asset.decimals));
 }
 
@@ -876,6 +930,7 @@ function moveAssetPriceByPoint(asset) {
 function stepTick() {
   if (sim.phase !== "running") return;
   sim.tick += 1;
+  applyRegimeFairValueDrift();
   evolveFactors();
   applyMacroEventIfAny();
   applyNewsIfAny();
