@@ -517,6 +517,11 @@ function ensureCashBuckets(player) {
   player.shortProceedsLocked = player.shortCollateral;
 }
 
+function computeAvailableCash(player) {
+  ensureCashBuckets(player);
+  return Number(player.freeCash || 0) - Number(player.shortCollateral || 0);
+}
+
 function canShortAsset(asset) {
   return SHORTABLE_ASSET_IDS.has(asset?.id);
 }
@@ -770,6 +775,7 @@ function broadcastLeaderboard() {
 
 function publishPortfolio(player) {
   ensureCashBuckets(player);
+  const availableCash = computeAvailableCash(player);
   const positions = Object.entries(player.positions).map(([assetId, data]) => ({
     assetId,
     position: data.position,
@@ -781,9 +787,9 @@ function publishPortfolio(player) {
   if (socket) {
     socket.emit("portfolio", {
       positions,
-      availableCash: player.freeCash,
+      availableCash,
       freeCash: player.freeCash,
-      cash: player.freeCash,
+      cash: availableCash,
       shortCollateral: player.shortCollateral,
       totalEquity: computePlayerPortfolioValue(player),
     });
@@ -904,7 +910,7 @@ function fillOrder(player, order, asset) {
   const previousPosition = Number(positionData.position || 0);
   const totalCost = effectiveQty * Number(order.price || 0);
 
-  if (normalizedSide === "buy" && Number(player.freeCash || 0) < totalCost) {
+  if (normalizedSide === "buy" && computeAvailableCash(player) < totalCost) {
     return { filledQty: 0, realizedPnlDelta: 0 };
   }
 
@@ -1196,6 +1202,10 @@ function stepTick() {
   io.emit("assetTick", { assets: updates, tick: sim.tick, durationTicks: sim.durationTicks });
   io.emit("macroEvents", macroPayload());
 
+  for (const player of players.values()) {
+    publishPortfolio(player);
+  }
+
   if (candleClosed) {
     snapshotPlayerScoringAtCandleClose();
     broadcastLeaderboard();
@@ -1457,7 +1467,7 @@ io.on("connection", (socket) => {
     }
 
     if (type === "market") {
-      if (tradeCashRequirement(player, asset.id, side, qty, asset.price) > player.freeCash) {
+      if (tradeCashRequirement(player, asset.id, side, qty, asset.price) > computeAvailableCash(player)) {
         ack?.({ ok: false, reason: "insufficient-cash" });
         return;
       }
@@ -1479,7 +1489,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    if (tradeCashRequirement(player, asset.id, side, qty, limitPrice) > player.freeCash) {
+    if (tradeCashRequirement(player, asset.id, side, qty, limitPrice) > computeAvailableCash(player)) {
       ack?.({ ok: false, reason: "insufficient-cash" });
       return;
     }
