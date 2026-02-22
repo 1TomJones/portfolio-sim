@@ -512,7 +512,7 @@ function canShortAsset(asset) {
   return sim.scenario?.id === "macro-six-month" && SHORTABLE_ASSET_IDS.has(asset?.id);
 }
 
-function cashDeltaForTrade(side, qty, price) {
+function cashDeltaForTrade(side, qty, price, positionInput = 0) {
   const tradeQty = Math.max(0, Number(qty || 0));
   const unitPrice = Math.max(0, Number(price || 0));
   const position = Number(positionInput || 0);
@@ -533,7 +533,8 @@ function cashDeltaForTrade(side, qty, price) {
 }
 
 function tradeCashRequirement(player, assetId, side, qty, price) {
-  const projectedCashDelta = cashDeltaForTrade(side, qty, price);
+  const currentPosition = Number(player?.positions?.[assetId]?.position || 0);
+  const projectedCashDelta = cashDeltaForTrade(side, qty, price, currentPosition);
   return Math.max(0, -projectedCashDelta);
 }
 
@@ -833,7 +834,7 @@ function fillOrder(player, order, asset) {
 
   const qtySigned = order.side === "buy" ? effectiveQty : -effectiveQty;
   const previousPosition = Number(positionData.position || 0);
-  const cashDelta = cashDeltaForTrade(order.side, effectiveQty, order.price);
+  const cashDelta = cashDeltaForTrade(order.side, effectiveQty, order.price, previousPosition);
 
   if (cashDelta < 0 && Number(player.cash || 0) + cashDelta < 0) {
     return { filledQty: 0, realizedPnlDelta: 0 };
