@@ -796,7 +796,7 @@ function updateAssetsListValues() {
     changeCell.classList.toggle("negative", oneMonthPct < 0);
 
     row.querySelector(".asset-position").textContent = String(posData.position.toFixed(0));
-    row.querySelector(".asset-pos-value").textContent = formatCurrency(Math.max(0, posData.position) * asset.price);
+    row.querySelector(".asset-pos-value").textContent = formatCurrency(Math.abs(Number(posData.position || 0)) * asset.price);
 
     const pnlCell = row.querySelector(".asset-pnl");
     pnlCell.textContent = formatSignedCurrency(pnlData);

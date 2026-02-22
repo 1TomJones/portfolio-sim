@@ -513,12 +513,21 @@ function canShortAsset(asset) {
 }
 
 function tradeCashRequirement(player, assetId, side, qty, price) {
-  const signedQty = Math.max(0, Number(qty || 0)) * (side === "sell" ? -1 : 1);
+  const tradeQty = Math.max(0, Number(qty || 0));
   const unitPrice = Math.max(0, Number(price || 0));
-  const currentPosition = Number(ensurePosition(player, assetId).position || 0);
-  const nextPosition = currentPosition + signedQty;
-  const grossIncreaseQty = Math.max(0, Math.abs(nextPosition) - Math.abs(currentPosition));
-  return grossIncreaseQty * unitPrice;
+  const position = Number(ensurePosition(player, assetId).position || 0);
+
+  if (side === "buy") {
+    return tradeQty * unitPrice;
+  }
+
+  if (position <= 0) {
+    return 0;
+  }
+
+  const closingQty = Math.min(position, tradeQty);
+  const openingShortQty = Math.max(0, tradeQty - closingQty);
+  return openingShortQty * unitPrice;
 }
 
 function computePositionPnl(positionData, assetPrice) {
@@ -817,9 +826,7 @@ function fillOrder(player, order, asset) {
 
   const qtySigned = order.side === "buy" ? effectiveQty : -effectiveQty;
   const previousPosition = Number(positionData.position || 0);
-  const projectedPosition = previousPosition + qtySigned;
-  const grossDeltaQty = Math.abs(projectedPosition) - Math.abs(previousPosition);
-  const cashDelta = -grossDeltaQty * order.price;
+  const cashDelta = -qtySigned * order.price;
 
   if (cashDelta < 0 && Number(player.cash || 0) + cashDelta < 0) {
     return { filledQty: 0, realizedPnlDelta: 0 };
