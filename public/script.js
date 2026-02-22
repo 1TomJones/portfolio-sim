@@ -44,6 +44,10 @@ const portfolioPie = document.getElementById("portfolioPie");
 const portfolioPieDetails = document.getElementById("portfolioPieDetails");
 const portfolioPieTotals = document.getElementById("portfolioPieTotals");
 const fullscreenButtons = Array.from(document.querySelectorAll("[data-fullscreen]"));
+const endSummary = document.getElementById("endSummary");
+const endMetricsGrid = document.getElementById("endMetricsGrid");
+const endPnlChart = document.getElementById("endPnlChart");
+const endInvestedChart = document.getElementById("endInvestedChart");
 
 
 const chartContainer = document.getElementById("chart");
@@ -91,6 +95,7 @@ let currentTick = 0;
 let simStartMs = null;
 let tickMs = 500;
 const GAME_MS_PER_TICK = 12 * 60 * 1000;
+let latestEndSummaryPayload = null;
 
 
 function formatGameTime(gameTimeMs) {
@@ -266,6 +271,190 @@ function formatSignedCurrency(value) {
   if (!Number.isFinite(value)) return "—";
   const sign = value > 0 ? "+" : value < 0 ? "-" : "";
   return `${sign}${formatCurrency(Math.abs(value))}`;
+}
+
+function formatPercent(value) {
+  if (!Number.isFinite(value)) return "—";
+  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+  return `${sign}${Math.abs(Number(value)).toFixed(2)}%`;
+}
+
+function renderEndMetrics(metrics = {}) {
+  if (!endMetricsGrid) return;
+  const cards = [
+    { label: "Total PnL", value: formatSignedCurrency(Number(metrics.totalPnl || 0)), className: "money" },
+    { label: "Return", value: formatPercent(Number(metrics.returnPct || 0)), className: "pct" },
+    { label: "Max Drawdown", value: `${Number(metrics.maxDrawdownPct || 0).toFixed(2)}%`, className: "pct" },
+    { label: "Avg % Invested", value: `${Number(metrics.avgInvested || 0).toFixed(2)}%`, className: "pct" },
+    { label: "Final Score", value: Number(metrics.finalScore || 0).toFixed(2), className: "score" },
+  ];
+
+  endMetricsGrid.innerHTML = cards
+    .map((card) => `<div class="end-metric"><span class="end-metric-label">${card.label}</span><strong class="end-metric-value ${card.className}">${card.value}</strong></div>`)
+    .join("");
+
+  const pnlCard = endMetricsGrid.querySelector(".end-metric-value.money");
+  const totalPnl = Number(metrics.totalPnl || 0);
+  pnlCard?.classList.toggle("positive", totalPnl > 0);
+  pnlCard?.classList.toggle("negative", totalPnl < 0);
+}
+
+function drawAxes(ctx, width, height, minY, maxY, labels) {
+  const leftPad = 56;
+  const rightPad = 84;
+  const topPad = 20;
+  const bottomPad = 42;
+  const innerW = width - leftPad - rightPad;
+  const innerH = height - topPad - bottomPad;
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = "#0d1423";
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.strokeStyle = "rgba(140,155,182,0.35)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(leftPad, topPad + innerH);
+  ctx.lineTo(width - rightPad, topPad + innerH);
+  ctx.moveTo(width - rightPad, topPad);
+  ctx.lineTo(width - rightPad, topPad + innerH);
+  ctx.stroke();
+
+  ctx.fillStyle = "#8c9bb6";
+  ctx.font = "12px system-ui";
+  ctx.textAlign = "right";
+  labels.forEach((label) => {
+    ctx.fillText(label.text, width - 10, label.y + 4);
+  });
+
+  return {
+    leftPad,
+    rightPad,
+    topPad,
+    bottomPad,
+    innerW,
+    innerH,
+    yFor: (value) => {
+      if (Math.abs(maxY - minY) < Number.EPSILON) return topPad + innerH / 2;
+      const ratio = (value - minY) / (maxY - minY);
+      return topPad + (1 - ratio) * innerH;
+    },
+  };
+}
+
+function drawEndPnlChart(series = []) {
+  const canvas = endPnlChart;
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx || !series.length) return;
+
+  const values = series.map((p) => Number(p.totalPnl || 0));
+  const minVal = Math.min(0, ...values);
+  const maxVal = Math.max(0, ...values);
+  const pad = Math.max(1000, (maxVal - minVal) * 0.1);
+  const minY = minVal - pad;
+  const maxY = maxVal + pad;
+
+  const dims = drawAxes(ctx, canvas.width, canvas.height, minY, maxY, [
+    { text: formatSignedCurrency(maxY), y: 20 },
+    { text: "$0.00", y: 20 + ((maxY - 0) / (maxY - minY || 1)) * (canvas.height - 62) },
+    { text: formatSignedCurrency(minY), y: canvas.height - 42 },
+  ]);
+
+  const points = series.map((entry, idx) => {
+    const x = dims.leftPad + (idx / Math.max(1, series.length - 1)) * dims.innerW;
+    const y = dims.yFor(Number(entry.totalPnl || 0));
+    return { x, y, pnl: Number(entry.totalPnl || 0), t: Number(entry.gameTimeMs || 0) };
+  });
+
+  const zeroY = dims.yFor(0);
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = "rgba(255,255,255,0.35)";
+  ctx.beginPath();
+  ctx.moveTo(dims.leftPad, zeroY);
+  ctx.lineTo(canvas.width - dims.rightPad, zeroY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  for (let i = 1; i < points.length; i += 1) {
+    const a = points[i - 1];
+    const b = points[i];
+    ctx.strokeStyle = a.pnl >= 0 && b.pnl >= 0 ? "#2ecc71" : a.pnl <= 0 && b.pnl <= 0 ? "#ff5c5c" : null;
+    if (ctx.strokeStyle) {
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+      continue;
+    }
+    const denom = b.pnl - a.pnl;
+    const splitRatio = Math.abs(denom) < Number.EPSILON ? 0.5 : (0 - a.pnl) / denom;
+    const mx = a.x + (b.x - a.x) * splitRatio;
+    const my = a.y + (b.y - a.y) * splitRatio;
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = a.pnl > 0 ? "#2ecc71" : "#ff5c5c";
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(mx, my);
+    ctx.stroke();
+    ctx.strokeStyle = b.pnl > 0 ? "#2ecc71" : "#ff5c5c";
+    ctx.beginPath();
+    ctx.moveTo(mx, my);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = "#8c9bb6";
+  ctx.font = "12px system-ui";
+  ctx.textAlign = "center";
+  const first = points[0];
+  const last = points[points.length - 1];
+  ctx.fillText(formatGameTime(first.t), first.x, canvas.height - 14);
+  ctx.fillText(formatGameTime(last.t), last.x, canvas.height - 14);
+}
+
+function drawEndInvestedChart(series = []) {
+  const canvas = endInvestedChart;
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx || !series.length) return;
+
+  const minY = 0;
+  const maxY = 100;
+  const dims = drawAxes(ctx, canvas.width, canvas.height, minY, maxY, [
+    { text: "100%", y: 20 },
+    { text: "50%", y: canvas.height / 2 },
+    { text: "0%", y: canvas.height - 42 },
+  ]);
+
+  const points = series.map((entry, idx) => ({
+    x: dims.leftPad + (idx / Math.max(1, series.length - 1)) * dims.innerW,
+    y: dims.yFor(Number(entry.investedPct || 0)),
+    t: Number(entry.gameTimeMs || 0),
+  }));
+
+  ctx.strokeStyle = "#6da8ff";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  points.forEach((point, idx) => {
+    if (idx === 0) ctx.moveTo(point.x, point.y);
+    else ctx.lineTo(point.x, point.y);
+  });
+  ctx.stroke();
+
+  ctx.fillStyle = "#8c9bb6";
+  ctx.font = "12px system-ui";
+  ctx.textAlign = "center";
+  ctx.fillText(formatGameTime(points[0].t), points[0].x, canvas.height - 14);
+  ctx.fillText(formatGameTime(points[points.length - 1].t), points[points.length - 1].x, canvas.height - 14);
+}
+
+function renderEndSummary(payload = {}) {
+  latestEndSummaryPayload = payload;
+  renderEndMetrics(payload.metrics || {});
+  drawEndPnlChart(payload.series || []);
+  drawEndInvestedChart(payload.series || []);
 }
 
 function normalizedOrderQuantity() {
@@ -717,6 +906,7 @@ function refreshViewForPhase() {
     hide(joinView);
     hide(waitView);
     show(gameView);
+    hide(endSummary);
     return;
   }
 
@@ -731,6 +921,13 @@ function setPhase(phase) {
   if (buyBtn) buyBtn.disabled = !marketOpen;
   if (sellBtn) sellBtn.disabled = !marketOpen;
   refreshViewForPhase();
+  if (currentPhase === "ended") {
+    hide(joinView);
+    hide(waitView);
+    show(gameView);
+    show(endSummary);
+    if (latestEndSummaryPayload) renderEndSummary(latestEndSummaryPayload);
+  }
 }
 
 function handleOrder(side) {
@@ -841,6 +1038,14 @@ socket.on("macroEvents", (payload) => {
 
 socket.on("roster", (payload) => {
   renderRoster(payload?.players || []);
+});
+
+socket.on("endSummary", (payload) => {
+  renderEndSummary(payload || {});
+  if (currentPhase === "ended") {
+    show(gameView);
+    show(endSummary);
+  }
 });
 
 socket.on("scenarioError", (payload) => {

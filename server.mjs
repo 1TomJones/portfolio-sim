@@ -677,6 +677,43 @@ function computePlayerMetrics(player) {
   };
 }
 
+function endSummaryPayloadForPlayer(player) {
+  const metrics = computePlayerMetrics(player);
+  const history = Array.isArray(player.scoringHistory) ? player.scoringHistory : [];
+  const series = history.map((entry) => {
+    const tick = Number(entry.tick || 0);
+    const portfolioValue = Number(entry.portfolioValue || STARTING_CAPITAL);
+    return {
+      tick,
+      gameTimeMs: Number(sim.simStartMs || Date.now()) + tick * Number(sim.simCfg.gameMsPerTick || 0),
+      totalPnl: portfolioValue - STARTING_CAPITAL,
+      investedPct: Number(entry.investedPct || 0),
+    };
+  });
+
+  return {
+    metrics: {
+      totalPnl: metrics.totalPnl,
+      returnPct: metrics.returnPct,
+      maxDrawdownPct: metrics.maxDrawdownPct,
+      avgInvested: metrics.avgInvested,
+      finalScore: metrics.finalScore,
+    },
+    series,
+  };
+}
+
+function publishEndSummary(player) {
+  if (!player) return;
+  const socket = io.sockets.sockets.get(player.id);
+  if (!socket) return;
+  socket.emit("endSummary", endSummaryPayloadForPlayer(player));
+}
+
+function publishEndSummaries() {
+  for (const player of players.values()) publishEndSummary(player);
+}
+
 function computeAwards(rows) {
   const awardsByPlayerId = new Map();
   const addAward = (playerId, code, label) => {
@@ -1100,6 +1137,7 @@ function startTicking() {
 function setPhase(nextPhase) {
   sim.phase = nextPhase;
   io.emit("phase", nextPhase);
+  if (nextPhase === "ended") publishEndSummaries();
 }
 
 function initialAssetPayload() {
@@ -1296,6 +1334,7 @@ io.on("connection", (socket) => {
     ack?.({ ok: true, phase: sim.phase, assets: initialAssetPayload(), tickMs: sim.simCfg.tickMs, durationTicks: sim.durationTicks, scenario: sim.scenario, ...rosterPayload() });
     socket.emit("macroEvents", macroPayload());
     publishPortfolio(players.get(socket.id));
+    if (sim.phase === "ended") publishEndSummary(players.get(socket.id));
     broadcastLeaderboard();
   });
 
