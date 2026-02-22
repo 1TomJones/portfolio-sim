@@ -513,17 +513,18 @@ function canShortAsset(asset) {
 }
 
 function cashDeltaForTrade(side, qty, price, positionInput = 0) {
+  const normalizedSide = String(side || "").toLowerCase();
   const tradeQty = Math.max(0, Number(qty || 0));
   const unitPrice = Math.max(0, Number(price || 0));
   const position = Number(positionInput || 0);
 
-  if (side === "buy") {
+  if (normalizedSide === "buy") {
     const shortCoveredQty = Math.min(Math.max(0, -position), tradeQty);
     const longOpenedQty = Math.max(0, tradeQty - shortCoveredQty);
     return shortCoveredQty * unitPrice - longOpenedQty * unitPrice;
   }
 
-  if (side === "sell") {
+  if (normalizedSide === "sell") {
     const longClosedQty = Math.min(Math.max(0, position), tradeQty);
     const shortOpenedQty = Math.max(0, tradeQty - longClosedQty);
     return longClosedQty * unitPrice - shortOpenedQty * unitPrice;
@@ -821,10 +822,11 @@ function applyFillToPosition(positionData, qtySigned, price) {
 function fillOrder(player, order, asset) {
   const positionData = ensurePosition(player, order.assetId);
   const requestedQty = Math.abs(Number(order.qty || 0));
+  const normalizedSide = String(order.side || "").toLowerCase() === "sell" ? "sell" : "buy";
   const shortable = canShortAsset(asset);
   let effectiveQty = requestedQty;
 
-  if (order.side === "sell" && !shortable) {
+  if (normalizedSide === "sell" && !shortable) {
     effectiveQty = Math.min(effectiveQty, Math.max(0, Number(positionData.position || 0)));
   }
 
@@ -832,9 +834,9 @@ function fillOrder(player, order, asset) {
     return { filledQty: 0, realizedPnlDelta: 0 };
   }
 
-  const qtySigned = order.side === "buy" ? effectiveQty : -effectiveQty;
+  const qtySigned = normalizedSide === "buy" ? effectiveQty : -effectiveQty;
   const previousPosition = Number(positionData.position || 0);
-  const cashDelta = cashDeltaForTrade(order.side, effectiveQty, order.price, previousPosition);
+  const cashDelta = cashDeltaForTrade(normalizedSide, effectiveQty, order.price, previousPosition);
 
   if (cashDelta < 0 && Number(player.cash || 0) + cashDelta < 0) {
     return { filledQty: 0, realizedPnlDelta: 0 };
@@ -847,7 +849,7 @@ function fillOrder(player, order, asset) {
   if (socket) {
     socket.emit("execution", {
       assetId: order.assetId,
-      side: order.side,
+      side: normalizedSide,
       qty: effectiveQty,
       price: order.price,
       previousPosition,
@@ -861,7 +863,7 @@ function fillOrder(player, order, asset) {
 
   asset.lastTrade = {
     price: order.price,
-    side: order.side,
+    side: normalizedSide,
     t: Date.now(),
   };
 
