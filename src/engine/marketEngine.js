@@ -328,6 +328,7 @@ export class MarketEngine {
       position: 0,
       avgPrice: null,
       cash: 0,
+      realizedPnl: 0,
       pnl: 0,
       isBot: Boolean(options.isBot),
       meta: options.meta ?? null,
@@ -459,7 +460,10 @@ export class MarketEngine {
 
   updatePnl(player) {
     if (!player) return;
-    player.pnl = player.cash + player.position * this.currentPrice;
+    const position = Number(player.position || 0);
+    const avgPrice = Number(player.avgPrice ?? this.currentPrice);
+    const unrealized = Math.abs(position) > 1e-9 ? (this.currentPrice - avgPrice) * position : 0;
+    player.pnl = Number(player.realizedPnl || 0) + unrealized;
   }
 
   recomputePnLAll() {
@@ -1154,7 +1158,16 @@ export class MarketEngine {
     const actual = next - prev;
     if (Math.abs(actual) <= 1e-9) return 0;
 
-    player.cash -= actual * price;
+    const prevSign = Math.sign(prev);
+    const actualSign = Math.sign(actual);
+    if (prevSign !== 0 && actualSign !== 0 && prevSign !== actualSign) {
+      const closedQty = Math.min(Math.abs(actual), Math.abs(prev));
+      const entry = Number(player.avgPrice ?? price);
+      player.realizedPnl = Number(player.realizedPnl || 0) + (price - entry) * closedQty * prevSign;
+    }
+
+    const exposureDelta = Math.abs(next) - Math.abs(prev);
+    player.cash -= exposureDelta * price;
     const isCrossing = prev !== 0 && Math.sign(prev) !== Math.sign(next);
 
     if (Math.abs(next) < 1e-6) {
