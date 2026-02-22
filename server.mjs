@@ -781,8 +781,10 @@ function publishPortfolio(player) {
   if (socket) {
     socket.emit("portfolio", {
       positions,
+      availableCash: player.freeCash,
       freeCash: player.freeCash,
       cash: player.freeCash,
+      shortCollateral: player.shortCollateral,
       totalEquity: computePlayerPortfolioValue(player),
     });
     socket.emit("openOrders", { orders: player.orders });

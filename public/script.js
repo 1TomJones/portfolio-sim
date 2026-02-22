@@ -1020,8 +1020,8 @@ socket.on("portfolio", (payload) => {
       realizedPnl: item.realizedPnl ?? 0,
     });
   });
-  if (Number.isFinite(payload?.freeCash)) availableCash = payload.freeCash;
-  else if (Number.isFinite(payload?.cash)) availableCash = payload.cash;
+  if (Number.isFinite(payload?.availableCash)) availableCash = payload.availableCash;
+  else if (Number.isFinite(payload?.freeCash)) availableCash = payload.freeCash;
   totalEquity = Number.isFinite(payload?.totalEquity) ? payload.totalEquity : NaN;
   renderAssetsList();
   updateAssetsListValues();
