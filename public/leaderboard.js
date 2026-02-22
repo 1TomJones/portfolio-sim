@@ -7,7 +7,7 @@ const socket = io({ transports: ["websocket", "polling"], query: { role: "leader
 
 const METRIC_COLUMNS = [
   { key: "returnPct", label: "Return %", digits: 2, defaultDir: "desc" },
-  { key: "sharpe", label: "Sharpe", digits: 3, defaultDir: "desc" },
+  { key: "riskScore", label: "Risk Score", digits: 3, defaultDir: "desc" },
   { key: "avgInvested", label: "Invest %", digits: 2, defaultDir: "desc" },
   { key: "allocationScore", label: "Allocation %", digits: 2, defaultDir: "desc" },
   { key: "finalScore", label: "Score", digits: 4, defaultDir: "desc" },

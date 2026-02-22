@@ -41,9 +41,6 @@ const PORT = process.env.PORT || 10000;
 const DEFAULT_CASH = 10000000;
 const SHORTABLE_ASSET_IDS = new Set(["cmd-brent", "cmd-wti"]);
 const STARTING_CAPITAL = DEFAULT_CASH;
-const ANNUAL_RISK_FREE_RATE_PCT = 5;
-const SIMULATION_LENGTH_YEARS = 0.5;
-const RISK_FREE_RETURN_PCT = ANNUAL_RISK_FREE_RATE_PCT * SIMULATION_LENGTH_YEARS;
 const GRACE_PERIOD_CANDLES = 60;
 const scenariosPath = path.join(__dirname, "scenarios");
 const metadataPath = path.join(__dirname, "public", "meta", "scenarios.json");
@@ -150,9 +147,10 @@ function candleStepSeconds(simCfgOrTicksPerCandle, maybeGameMsPerTick) {
   return Math.max(1, Math.round((simCfgOrTicksPerCandle * maybeGameMsPerTick) / 1000));
 }
 
-function buildInitialCandles(startPrice, decimals, maxCandles, ticksPerCandle, gameMsPerTick, simStartMs) {
+function buildInitialCandles(startPrice, fairValueAtStart, pointSize, decimals, maxCandles, ticksPerCandle, gameMsPerTick, simStartMs) {
   const candles = [];
   let price = startPrice;
+  const fairValue = Math.max(0.01, Number.isFinite(fairValueAtStart) ? fairValueAtStart : startPrice);
   const stepSeconds = candleStepSeconds(ticksPerCandle, gameMsPerTick);
   const startTime = Math.floor((simStartMs - maxCandles * ticksPerCandle * gameMsPerTick) / 1000);
   for (let i = 0; i < maxCandles; i += 1) {
@@ -161,8 +159,13 @@ function buildInitialCandles(startPrice, decimals, maxCandles, ticksPerCandle, g
     let high = price;
     let low = price;
     for (let tick = 0; tick < ticksPerCandle; tick += 1) {
-      const wiggle = (Math.random() - 0.5) * 0.003;
-      price = quantize(Math.max(0.01, price * (1 + wiggle)), decimals);
+      const signedDistancePct = (fairValue - price) / fairValue;
+      const distanceAbsPct = Math.abs(signedDistancePct);
+      const towardProb = distanceTowardProbability(distanceAbsPct);
+      const moveToward = Math.random() < towardProb;
+      const towardDirection = Math.abs(signedDistancePct) < Number.EPSILON ? (Math.random() < 0.5 ? 1 : -1) : signedDistancePct > 0 ? 1 : -1;
+      const direction = moveToward ? towardDirection : -towardDirection;
+      price = quantize(Math.max(0.01, price + direction * pointSize), decimals);
       high = Math.max(high, price);
       low = Math.min(low, price);
     }
@@ -181,6 +184,8 @@ function createAssetState(assetDef, simCfg) {
   const initial = listedAtStart
     ? buildInitialCandles(
         assetDef.startPrice,
+        assetDef.startPrice,
+        pointSize,
         displayDecimals,
         simCfg.maxCandles,
         simCfg.ticksPerCandle,
@@ -211,7 +216,7 @@ function createAssetState(assetDef, simCfg) {
     fairValue: quantize(assetDef.startPrice, displayDecimals),
     driftMultiplier: 1,
     candles: initial.candles,
-    fairPoints: listedAtStart ? initial.candles.map((candle) => ({ time: candle.time, value: candle.close })) : [],
+    fairPoints: listedAtStart ? initial.candles.map((candle) => ({ time: candle.time, value: quantize(assetDef.startPrice, displayDecimals) })) : [],
     currentCandle: listedAtStart
       ? {
           time: lastCandleTime + stepSeconds,
@@ -547,13 +552,6 @@ function computePlayerPortfolioValue(player) {
   return Number(player.cash || 0) + holdingsValue;
 }
 
-function stdDev(values) {
-  if (!Array.isArray(values) || values.length < 2) return 0;
-  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
-  const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length;
-  return Math.sqrt(Math.max(variance, 0));
-}
-
 function average(values) {
   if (!Array.isArray(values) || values.length === 0) return 0;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -604,18 +602,6 @@ function computePlayerMetrics(player) {
   const finalPortfolioValue = history.length ? history[history.length - 1].portfolioValue : computePlayerPortfolioValue(player);
   const returnPct = ((finalPortfolioValue - STARTING_CAPITAL) / STARTING_CAPITAL) * 100;
 
-  const candleReturns = [];
-  for (let i = 1; i < history.length; i += 1) {
-    const prev = Number(history[i - 1].portfolioValue || 0);
-    const next = Number(history[i].portfolioValue || 0);
-    if (prev <= 0) continue;
-    candleReturns.push(((next - prev) / prev) * 100);
-  }
-
-  const volatilityPct = stdDev(candleReturns);
-  const excessReturnPct = returnPct - RISK_FREE_RETURN_PCT;
-  const sharpe = Math.abs(volatilityPct) < Number.EPSILON ? excessReturnPct : excessReturnPct / volatilityPct;
-
   const historyAfterGracePeriod = history.filter((_, index) => index + 1 > GRACE_PERIOD_CANDLES);
 
   const avgInvested = average(historyAfterGracePeriod.map((entry) => Number(entry.investedPct || 0)));
@@ -653,7 +639,6 @@ function computePlayerMetrics(player) {
   }
 
   const penaltyFactor = Math.max(0, 1 - penalty / 100);
-  const finalScore = Math.max(0, sharpe * (investmentScore / 100) * (allocationScore / 100) * penaltyFactor);
 
   let peak = STARTING_CAPITAL;
   let maxDrawdownPct = 0;
@@ -666,6 +651,9 @@ function computePlayerMetrics(player) {
     }
   }
 
+  const riskScore = Math.abs(maxDrawdownPct) < Number.EPSILON ? returnPct : returnPct / maxDrawdownPct;
+  const finalScore = Math.max(0, riskScore * (investmentScore / 100) * (allocationScore / 100) * penaltyFactor);
+
   const equityPnl = latestPositions
     .filter((position) => position.category === "equities")
     .reduce((sum, position) => sum + Number(position.pnl || 0), 0);
@@ -675,8 +663,7 @@ function computePlayerMetrics(player) {
     playerName: player.name,
     runId: player.runId,
     returnPct,
-    volatilityPct,
-    sharpe,
+    riskScore,
     avgInvested,
     investmentScore,
     allocationScore,
@@ -703,7 +690,7 @@ function computeAwards(rows) {
   const moneyBags = [...rows].sort((a, b) => b.totalPnl - a.totalPnl)[0];
   if (moneyBags) addAward(moneyBags.playerId, "money-bags", "💰 Money Bags");
 
-  const riskMaster = [...rows].sort((a, b) => b.sharpe - a.sharpe)[0];
+  const riskMaster = [...rows].sort((a, b) => b.riskScore - a.riskScore)[0];
   if (riskMaster) addAward(riskMaster.playerId, "risk-master", "🧠 Risk Master");
 
   const equityPro = [...rows].sort((a, b) => b.equityPnl - a.equityPnl)[0];
