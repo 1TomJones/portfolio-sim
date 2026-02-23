@@ -165,7 +165,7 @@
       "name": "S&P 500 Index",
       "category": "equities",
       "group": "indices",
-      "startPrice": 4780,
+      "startPrice": 6900,
       "priceDecimals": 1,
       "factors": {
         "globalRisk": 0.95,
@@ -178,7 +178,7 @@
       "name": "FTSE 100 Index",
       "category": "equities",
       "group": "indices",
-      "startPrice": 7680,
+      "startPrice": 14410,
       "priceDecimals": 1,
       "factors": {
         "globalRisk": 0.45,
@@ -192,7 +192,7 @@
       "name": "Euro Stoxx 50 Index",
       "category": "equities",
       "group": "indices",
-      "startPrice": 4920,
+      "startPrice": 7200,
       "priceDecimals": 1,
       "factors": {
         "globalRisk": 0.65,
@@ -206,7 +206,7 @@
       "name": "Nikkei 225 Index",
       "category": "equities",
       "group": "indices",
-      "startPrice": 38500,
+      "startPrice": 366,
       "priceDecimals": 0,
       "factors": {
         "globalRisk": 0.62,
@@ -219,7 +219,7 @@
       "name": "CSI 300 Index",
       "category": "equities",
       "group": "indices",
-      "startPrice": 3650,
+      "startPrice": 675,
       "priceDecimals": 1,
       "factors": {
         "globalRisk": 0.6,
@@ -273,7 +273,7 @@
       "symbol": "AG",
       "name": "Silver Spot",
       "category": "commodities",
-      "startPrice": 27,
+      "startPrice": 86,
       "priceDecimals": 2,
       "factors": {
         "globalRisk": 0.05,

@@ -1151,6 +1151,20 @@ function computeFairValue(asset) {
   return Math.max(0.01, quantize(target, asset.decimals));
 }
 
+function assetSymbol(asset) {
+  return String(asset?.symbol || "").toUpperCase();
+}
+
+function isGoldAsset(asset) {
+  const symbol = assetSymbol(asset);
+  return symbol === "GOLD" || symbol === "AU";
+}
+
+function isSilverAsset(asset) {
+  const symbol = assetSymbol(asset);
+  return symbol === "SILVER" || symbol === "AG";
+}
+
 function moveAssetPriceByPoint(asset) {
   const fv = Math.max(asset.fairValue, 0.01);
   const price = Math.max(asset.price, 0.01);
@@ -1172,6 +1186,7 @@ function moveAssetPriceByPoint(asset) {
 
 function stepTick() {
   if (sim.phase !== "running") return;
+  const fairValueAtTickStart = new Map(sim.assets.map((asset) => [asset.id, Number(asset.fairValue)]));
   sim.tick += 1;
   applyRegimeFairValueDrift();
   evolveFactors();
@@ -1221,7 +1236,19 @@ function stepTick() {
     }
 
     if (!justListed) {
-      asset.fairValue = computeFairValue(asset);
+      let nextFairValue = computeFairValue(asset);
+      if (isSilverAsset(asset)) {
+        const goldAsset = sim.assets.find((candidate) => isGoldAsset(candidate) && isAssetListed(candidate));
+        if (goldAsset) {
+          const goldStartFairValue = Number(fairValueAtTickStart.get(goldAsset.id));
+          const goldEndFairValue = computeFairValue(goldAsset);
+          if (Number.isFinite(goldStartFairValue) && goldStartFairValue > 0 && Number.isFinite(goldEndFairValue)) {
+            const goldFairValuePctMove = (goldEndFairValue - goldStartFairValue) / goldStartFairValue;
+            nextFairValue = Math.max(0.01, quantize(nextFairValue * (1 + goldFairValuePctMove * 2), asset.decimals));
+          }
+        }
+      }
+      asset.fairValue = nextFairValue;
       asset.price = moveAssetPriceByPoint(asset);
     }
 
