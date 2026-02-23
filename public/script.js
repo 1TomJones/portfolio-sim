@@ -199,7 +199,9 @@ function getCountryCodeForMacroEvent(event = {}) {
 }
 
 function cleanedMacroLabel(label = "") {
-  return String(label).replace(/^[\u{1F1E6}-\u{1F1FF}]{2}\s*/u, "").trim();
+  const noFlag = String(label).replace(/^[\u{1F1E6}-\u{1F1FF}]{2}\s*/u, "").trim();
+  const [base] = noFlag.split(/\s+[—-]\s+/u);
+  return String(base || noFlag).replace(/\s*\([^)]*\)\s*$/u, "").trim();
 }
 
 function pushNewsItem(headline, gameTimeMs, category = "general", isMajor = false) {
