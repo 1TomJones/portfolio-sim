@@ -37,6 +37,10 @@ let selectedScenarioNews = [];
 let adminPlayers = [];
 let averagePlayer = null;
 let selectedPortfolioOwnerId = "average";
+let pieRenderState = { cx: 0, cy: 0, radius: 0, slices: [], total: 0, ownerName: "" };
+let hoveredPieSliceKey = null;
+let playersFetchInFlight = false;
+let lastPlayersFetchAt = 0;
 
 const socket = io({ transports: ["websocket", "polling"], query: { role: "admin" } });
 
@@ -89,7 +93,11 @@ function paintAdminPortfolioPie(owner) {
   const ctx = adminPortfolioPie.getContext("2d");
   if (!ctx) return;
 
-  const slices = Array.isArray(owner?.slices) ? owner.slices.filter((slice) => Number(slice?.value || 0) > 0) : [];
+  const slices = Array.isArray(owner?.slices)
+    ? owner.slices
+      .filter((slice) => Number(slice?.value || 0) > 0)
+      .map((slice) => ({ ...slice }))
+    : [];
   const total = slices.reduce((sum, slice) => sum + Number(slice.value || 0), 0);
 
   const categoryBuckets = { commodities: [], equities: [] };
@@ -114,10 +122,17 @@ function paintAdminPortfolioPie(owner) {
   let start = -Math.PI / 2;
   slices.forEach((slice) => {
     const angle = total > 0 ? (Number(slice.value || 0) / total) * Math.PI * 2 : 0;
-    const end = start + angle;
+    const sliceStart = start;
+    const end = sliceStart + angle;
+    slice.key = slice.assetId || slice.symbol || slice.label || `${slice.category}-${sliceStart}`;
+    slice.startAngle = sliceStart;
+    slice.endAngle = end;
+    slice.percent = total > 0 ? (Number(slice.value || 0) / total) * 100 : 0;
+    const isHovered = hoveredPieSliceKey && hoveredPieSliceKey === slice.key;
+    const drawRadius = isHovered ? radius + 6 : radius;
     ctx.beginPath();
     ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, radius, start, end);
+    ctx.arc(cx, cy, drawRadius, sliceStart, end);
     ctx.closePath();
     ctx.fillStyle = slice.color;
     ctx.fill();
@@ -126,6 +141,19 @@ function paintAdminPortfolioPie(owner) {
     ctx.stroke();
     start = end;
   });
+
+  pieRenderState = {
+    cx,
+    cy,
+    radius: radius + 8,
+    slices,
+    total,
+    ownerName: owner?.name || "—",
+  };
+
+  if (hoveredPieSliceKey && !slices.some((slice) => slice.key === hoveredPieSliceKey)) {
+    hoveredPieSliceKey = null;
+  }
 
   if (!slices.length) {
     ctx.fillStyle = "rgba(255,255,255,0.4)";
@@ -143,13 +171,53 @@ function paintAdminPortfolioPie(owner) {
 
   if (adminPortfolioPieDetails) {
     const countLabel = owner?.id === "average" ? ` across ${owner?.playerCount || 0} players` : "";
-    adminPortfolioPieDetails.textContent = `${owner?.name || "—"}${countLabel} · Invested ${formatPercent(owner?.investedPct || 0)} · PnL ${formatSignedCurrency(owner?.pnl || 0)}`;
+    const hoveredSlice = slices.find((slice) => slice.key === hoveredPieSliceKey);
+    const hoverLabel = hoveredSlice
+      ? ` · Hover: ${hoveredSlice.symbol || hoveredSlice.label || "Asset"} ${hoveredSlice.percent.toFixed(2)}% (${formatSignedCurrency(hoveredSlice.value || 0)})`
+      : "";
+    adminPortfolioPieDetails.textContent = `${owner?.name || "—"}${countLabel} · Invested ${formatPercent(owner?.investedPct || 0)} · PnL ${formatSignedCurrency(owner?.pnl || 0)}${hoverLabel}`;
   }
   if (adminPortfolioPieTotals) {
     const commodityPct = total > 0 ? (commoditiesValue / total) * 100 : 0;
     const equitiesPct = total > 0 ? (equitiesValue / total) * 100 : 0;
     adminPortfolioPieTotals.textContent = `Commodities: ${commodityPct.toFixed(2)}% · Equities: ${equitiesPct.toFixed(2)}%`;
   }
+}
+
+function pieSliceAtPosition(clientX, clientY) {
+  if (!adminPortfolioPie) return null;
+  const rect = adminPortfolioPie.getBoundingClientRect();
+  const scaleX = rect.width ? adminPortfolioPie.width / rect.width : 1;
+  const scaleY = rect.height ? adminPortfolioPie.height / rect.height : 1;
+  const x = (clientX - rect.left) * scaleX;
+  const y = (clientY - rect.top) * scaleY;
+  const dx = x - pieRenderState.cx;
+  const dy = y - pieRenderState.cy;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  if (distance > pieRenderState.radius) return null;
+
+  let angle = Math.atan2(dy, dx);
+  if (angle < -Math.PI / 2) angle += Math.PI * 2;
+  return pieRenderState.slices.find((slice) => angle >= slice.startAngle && angle <= slice.endAngle) || null;
+}
+
+function bindPieHover() {
+  if (!adminPortfolioPie) return;
+  adminPortfolioPie.addEventListener("mousemove", (event) => {
+    const hovered = pieSliceAtPosition(event.clientX, event.clientY);
+    const nextHoverKey = hovered?.key || null;
+    if (nextHoverKey === hoveredPieSliceKey) return;
+    hoveredPieSliceKey = nextHoverKey;
+    const owner = selectedPortfolioOwnerId === "average" ? averagePlayer : adminPlayers.find((player) => player.id === selectedPortfolioOwnerId);
+    paintAdminPortfolioPie(owner || averagePlayer || null);
+  });
+
+  adminPortfolioPie.addEventListener("mouseleave", () => {
+    if (!hoveredPieSliceKey) return;
+    hoveredPieSliceKey = null;
+    const owner = selectedPortfolioOwnerId === "average" ? averagePlayer : adminPlayers.find((player) => player.id === selectedPortfolioOwnerId);
+    paintAdminPortfolioPie(owner || averagePlayer || null);
+  });
 }
 
 function selectPortfolioOwner(id) {
@@ -562,7 +630,11 @@ async function runControl(phase, label) {
   }
 }
 
-async function fetchPlayers() {
+async function fetchPlayers(force = false) {
+  const now = Date.now();
+  if (!force && (playersFetchInFlight || now - lastPlayersFetchAt < 1200)) return;
+  playersFetchInFlight = true;
+  lastPlayersFetchAt = now;
   try {
     const response = await fetch("/api/admin/players", { cache: "no-store" });
     if (!response.ok) throw new Error("admin-players-unavailable");
@@ -580,6 +652,8 @@ async function fetchPlayers() {
     averagePlayer = null;
     renderPlayers();
     paintAdminPortfolioPie(null);
+  } finally {
+    playersFetchInFlight = false;
   }
 }
 
@@ -613,7 +687,7 @@ socket.on("adminAssetSnapshot", (payload) => {
     const selected = assetMap.get(selectedAssetId);
     if (selected) setChartDataForAsset(selected);
   }
-  fetchPlayers();
+  fetchPlayers(true);
 });
 
 socket.on("adminAssetTick", (payload) => {
@@ -659,4 +733,5 @@ socket.on("news", () => {
 updateTickBadge();
 renderAdminNewsTimeline();
 loadScenarios();
-fetchPlayers();
+bindPieHover();
+fetchPlayers(true);
