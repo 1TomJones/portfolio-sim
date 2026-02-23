@@ -46,4 +46,24 @@ describe("cash-constrained execution", () => {
     assert.equal(trader.position, -3);
     assert.equal(trader.cash, 0);
   });
+
+  it("prevents extending a short when cash would go negative", () => {
+    const engine = createEngine();
+    const trader = engine.registerPlayer("trader", "Trader");
+
+    trader.position = -2;
+    trader.avgPrice = 100;
+    trader.cash = 50;
+
+    const extendShort = engine.executeMarketOrderForPlayer({ id: "trader", side: "SELL", quantity: 2 });
+    assert.equal(extendShort.filled, false);
+    assert.equal(trader.position, -2);
+    assert.equal(trader.cash, 50);
+
+    const cover = engine.executeMarketOrderForPlayer({ id: "trader", side: "BUY", quantity: 2 });
+    assert.equal(cover.filled, true);
+    assert.equal(cover.qty, 2);
+    assert.equal(trader.position, 0);
+    assert.equal(trader.cash, 250);
+  });
 });
