@@ -726,6 +726,14 @@
       }
     },
     {
+      "tick": 19000,
+      "headline": "Trump discusses plans for new 'Europe tariff' until Denmark agrees to sell Greenland",
+      "decay_seconds": 180,
+      "assetShocks": {
+        "idx-spx": -0.04
+      }
+    },
+    {
       "tick": 19200,
       "headline": "Sources say Space & AI contracts likely to favor cloud leaders",
       "decay_seconds": 180,
@@ -741,7 +749,7 @@
       "assetShocks": {
         "eq-msft": 0.04,
         "eq-goog": 0.05,
-        "idx-spx": 0.03
+        "idx-spx": 0.02
       },
       "major": true
     },
