@@ -224,8 +224,8 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .form-row-display{grid-column:2 / span 1}
 .form-row-display.hidden{display:none}
 .form-row-algo.hidden{display:none}
-.form-actions{display:flex;gap:8px;align-items:center;margin-top:auto}
-.form-actions.compact-actions{transform:translateY(-4px)}
+.form-actions{display:flex;gap:8px;align-items:center;margin-top:2px}
+.form-actions.compact-actions{transform:none}
 .form-actions button{width:auto;min-width:64px}
 .compact-actions button{padding:6px 10px;font-size:0.72rem}
 .form-actions .cancel{display:flex;align-items:center;justify-content:center;white-space:nowrap}
